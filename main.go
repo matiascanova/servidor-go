@@ -17,24 +17,14 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
 		if r.URL.Path != "/" {
-			fmt.Fprint(w, "Error 404")
+			http.NotFound(w, r)
 			return
 		}
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		
 		fmt.Fprint(w, htmlContent)
 	})
-	http.HandleFunc("/about", func(w http.ResponseWriter, r *http.Request) {
 
-		if r.URL.Path != "/about" {
-			fmt.Fprint(w, "Error 404")
-			return
-		}
-
-		fmt.Fprint(w, "port")
-		
-	})
 	
 	port := ":8080"
 	fmt.Printf("Servidor escuchando en http://localhost%s\n", port)
