@@ -1,0 +1,2 @@
+funcionamiento del codigo:
+el usuario al momento de realizar un curl hacia "/" entra en la rutina HandleFunc() que verifica si existe la url direccion de la enviada, en el caso de no existir retorna un error 404 y en el caso de que exista llama a http.ServeFile del archivo html perteneciente a la pagina indice.

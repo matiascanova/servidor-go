@@ -7,25 +7,17 @@ import (
 
 func main() {
 	
-	htmlContent := `<!DOCTYPE html>
-	<html>
-	<head><title>Hola Mundo</title></head>
-	<body><h1>¡Servidor Funcionando!</h1></body>
-	</html>`
-
-	
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
 			return
 		}
-
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprint(w, htmlContent)
+		http.ServeFile(w,r,"index.html")
 	})
 
-	
+
 	port := ":8080"
 	fmt.Printf("Servidor escuchando en http://localhost%s\n", port)
 
