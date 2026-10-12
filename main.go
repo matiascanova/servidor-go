@@ -107,7 +107,6 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-No Content
 
 	httpServer := &http.Server{
 		Addr:         ":" + port,

@@ -1,6 +1,6 @@
 services:
   database:
-    image: postgres:17-alpine
+    image: postgres:17
     container_name: postgres-db
     environment:
       - POSTGRES_DB=apirest
