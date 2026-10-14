@@ -7,13 +7,6 @@ USUARIOS_URL="$BASE_URL/usuarios"
 MATERIAS_URL="$BASE_URL/materias"
 VOTOS_URL="$BASE_URL/votos"
 
-if command -v sqlc > /dev/null 2>&1; then
-  sqlc generate 
-  echo "Código Go regenerado exitosamente en el paquete ./db" 
-else 
-  echo "Advertencia: 'sqlc' no se encuentra instalado en el sistema. Utilizando el código Go existente en ./db" 
-fi
-
 # Limpieza total al salir
 cleanup() {
   echo " Limpiando contenedores y volúmenes Docker..."
