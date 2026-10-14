@@ -1,7 +1,6 @@
->-Se asume que el usuario ya tiene isntalado
--Docker y Docker Compose
--Go 
--sqlc
+-Se asume que el usuario ya tiene instalado Docker y Docker Compose
+Go 
+sqlc
 
 >-Pasos
 
