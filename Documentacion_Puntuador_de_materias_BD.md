@@ -8,7 +8,7 @@ La principal idea de esta página es que los alumnos de exactas puedan puntuar l
 
 La Base de datos consiste en un esquema de 3 tablas en donde se guarda la información sobre los usuarios con campos sobre el nombre, apellido, e id, la tabla materia que contiene id, nombre, cuatrimestre (int que indica en qué cuatrimestre está ubicada en el plan de la carrera) y una corta descripción. Y la tabla voto consiste en conectar las otras tablas de forma que se registren las puntuaciones en las distintas materias de los distintos usuarios guardando id materia e id usuario como foreign keys, las 3 categorías en las que se puntúa, una fecha y una corta descripción. Además hay una restricción que no permite al usuario cargar una votación dejando los 3 campos de puntuación libres para no cargar tuplas sin la información que nos interesa pero permitiendo dar esa libertad para cargar solo campos elegidos.
 
-- **El dieño de la DB se encuentra subida al repositorio**
+- **El diseño de la DB se encuentra subida al repositorio**
 
 ### Consideraciones de rendimiento
 
