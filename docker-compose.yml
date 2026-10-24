@@ -1,6 +1,6 @@
 services:
   database:
-    image: postgres:17
+    image: postgres:17-alpine
     container_name: postgres-db
     environment:
       - POSTGRES_DB=apirest
@@ -9,14 +9,14 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
-      # Automontaje del esquema SQL de inicialización (crea las tablas usuario, materia, voto)
+      - pgdata:/var/lib/postgresql/data 
       - ./sql/schema/schema.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d apirest"]
-      interval: 3s
-      timeout: 3s
-      retries: 5
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   api:
     build:
