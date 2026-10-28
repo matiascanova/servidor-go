@@ -64,7 +64,7 @@ if [ $COUNT -eq $MAX_RETRIES ]; then
 fi
 
 echo "API REST en línea. Iniciando suite completa de pruebas HTTP..."
-echo -e "\n==========================================\n"
+
 
 # FUNCIÓN DE ASERCIÓN Y PRUEBA DE ENDPOINTS HTTP
 test_endpoint() {
