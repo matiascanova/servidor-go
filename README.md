@@ -7,7 +7,7 @@
 
 ---
 
-## 🚀 Guía de Ejecución
+##  Guía de Ejecución
 
 ### Opción 1: Ejecución Completa con Docker Compose (Recomendado)
 
@@ -49,7 +49,7 @@
 
 ---
 
-## 🧪 Pruebas Automatizadas (¿Qué hace el testeo?)
+##  Pruebas Automatizadas 
 
 El repositorio incluye herramientas de testeo automatizado para garantizar el correcto funcionamiento del sistema:
 
