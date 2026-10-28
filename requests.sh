@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# requests-v12.sh - Script de integración y pruebas automatizadas HTTP para Usuarios, Materias y Votos (TP3)
 
 set -e
 
@@ -7,7 +8,7 @@ USUARIOS_URL="$BASE_URL/usuarios"
 MATERIAS_URL="$BASE_URL/materias"
 VOTOS_URL="$BASE_URL/votos"
 
-# 0. Verificación simple del servicio de Docker (sin intento de inicio automático)
+# 0. Verificación simple del servicio de Docker
 echo "Verificando el estado del servicio Docker..."
 if ! docker info > /dev/null 2>&1; then
   echo "Error: El demonio de Docker no está en ejecución."
@@ -18,15 +19,21 @@ echo "Servicio de Docker activo y respondiendo."
 
 # Función de limpieza al salir
 cleanup() {
+  echo -e "\n=========================================="
   echo " Limpiando contenedores y volúmenes Docker..."
+  echo "=========================================="
   docker compose down -v 2>/dev/null || true
 }
 trap cleanup EXIT
 
+echo "=========================================="
 echo " 1. Limpiando ejecuciones previas y volúmenes"
+echo "=========================================="
 docker compose down -v 2>/dev/null || true
 
+echo -e "\n=========================================="
 echo " 2. Levantando infraestructura con Docker Compose"
+echo "=========================================="
 docker compose up -d --build
 
 echo -e "\nEsperando a que la base de datos PostgreSQL esté completamente lista..."
@@ -41,7 +48,7 @@ echo ""
 
 if [ $COUNT -eq $MAX_PG_RETRIES ]; then
   echo "Error: PostgreSQL no estuvo listo a tiempo."
-  docker compose logs postgres-db
+  docker compose logs postgres-db 2>/dev/null || true
   exit 1
 fi
 echo "Base de datos PostgreSQL lista y aceptando conexiones."
@@ -59,12 +66,12 @@ echo ""
 if [ $COUNT -eq $MAX_RETRIES ]; then
   echo "Error: La API REST no respondió a tiempo."
   echo "Mostrando logs de los contenedores:"
-  docker compose logs
+  docker compose logs 2>/dev/null || true
   exit 1
 fi
 
 echo "API REST en línea. Iniciando suite completa de pruebas HTTP..."
-
+echo -e "\n==========================================\n"
 
 # FUNCIÓN DE ASERCIÓN Y PRUEBA DE ENDPOINTS HTTP
 test_endpoint() {
@@ -103,7 +110,7 @@ test_endpoint() {
   if [ "$http_code" -ne "$status_esperado" ]; then
     echo "ERROR en Paso $paso: Se esperaba el código HTTP $status_esperado pero se obtuvo $http_code"
     echo "Logs del contenedor Go API:"
-    docker compose logs go-api
+    docker compose logs api 2>/dev/null || docker compose logs go-api 2>/dev/null || true
     exit 1
   fi
 
@@ -146,4 +153,4 @@ echo "--- SECCIÓN 4: ELIMINACIÓN Y LIMPIEZA ---"
 test_endpoint "14" "Eliminar materia" 204 "" "DELETE" "$MATERIAS_URL/101" ""
 test_endpoint "15" "Eliminar usuario" 204 "" "DELETE" "$USUARIOS_URL/10" ""
 
-echo " Pruebas HTTP completadas con éxito para Usuarios, Materias y Votos."
+echo "Pruebas HTTP completadas con éxito para Usuarios, Materias y Votos."

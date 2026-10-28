@@ -8,37 +8,12 @@ package db
 import (
 	"context"
 	"database/sql"
-	"time"
 )
-
-const actualizarMateria = `-- name: ActualizarMateria :exec
-UPDATE materia
-SET nombre = $2, cuatrimestre = $3, descripcion = $4
-WHERE idMateria = $1
-`
-
-type ActualizarMateriaParams struct {
-	Idmateria    int32          `json:"idmateria"`
-	Nombre       string         `json:"nombre"`
-	Cuatrimestre int32          `json:"cuatrimestre"`
-	Descripcion  sql.NullString `json:"descripcion"`
-}
-
-func (q *Queries) ActualizarMateria(ctx context.Context, arg ActualizarMateriaParams) error {
-	_, err := q.db.ExecContext(ctx, actualizarMateria,
-		arg.Idmateria,
-		arg.Nombre,
-		arg.Cuatrimestre,
-		arg.Descripcion,
-	)
-	return err
-}
 
 const actualizarUsuario = `-- name: ActualizarUsuario :exec
 UPDATE usuario
-SET nombre = $2, 
-    apellido = $3
-WHERE idUsuario = $1
+SET nombre = $2, apellido = $3
+WHERE idusuario = $1
 `
 
 type ActualizarUsuarioParams struct {
@@ -52,42 +27,8 @@ func (q *Queries) ActualizarUsuario(ctx context.Context, arg ActualizarUsuarioPa
 	return err
 }
 
-const actualizarVoto = `-- name: ActualizarVoto :exec
-UPDATE voto
-SET puntuacion_dif = $3, 
-    puntuacion_rel = $4, 
-    puntuacion_gusto = $5, 
-    descripcion = $6,
-    fecha_voto= $7
-WHERE idUsuario = $1 AND idMateria = $2
-`
-
-type ActualizarVotoParams struct {
-	Idusuario       int32          `json:"idusuario"`
-	Idmateria       int32          `json:"idmateria"`
-	PuntuacionDif   sql.NullInt32  `json:"puntuacion_dif"`
-	PuntuacionRel   sql.NullInt32  `json:"puntuacion_rel"`
-	PuntuacionGusto sql.NullInt32  `json:"puntuacion_gusto"`
-	Descripcion     sql.NullString `json:"descripcion"`
-	FechaVoto       time.Time      `json:"fecha_voto"`
-}
-
-func (q *Queries) ActualizarVoto(ctx context.Context, arg ActualizarVotoParams) error {
-	_, err := q.db.ExecContext(ctx, actualizarVoto,
-		arg.Idusuario,
-		arg.Idmateria,
-		arg.PuntuacionDif,
-		arg.PuntuacionRel,
-		arg.PuntuacionGusto,
-		arg.Descripcion,
-		arg.FechaVoto,
-	)
-	return err
-}
-
 const deleteMateria = `-- name: DeleteMateria :exec
-DELETE FROM materia 
-WHERE idMateria = $1
+DELETE FROM materia WHERE idmateria = $1
 `
 
 func (q *Queries) DeleteMateria(ctx context.Context, idmateria int32) error {
@@ -96,8 +37,7 @@ func (q *Queries) DeleteMateria(ctx context.Context, idmateria int32) error {
 }
 
 const deleteUsuario = `-- name: DeleteUsuario :exec
-DELETE FROM usuario 
-WHERE idUsuario = $1
+DELETE FROM usuario WHERE idusuario = $1
 `
 
 func (q *Queries) DeleteUsuario(ctx context.Context, idusuario int32) error {
@@ -106,8 +46,7 @@ func (q *Queries) DeleteUsuario(ctx context.Context, idusuario int32) error {
 }
 
 const deleteVoto = `-- name: DeleteVoto :exec
-DELETE FROM voto
-WHERE idUsuario = $1 AND idMateria = $2
+DELETE FROM voto WHERE idusuario = $1 AND idmateria = $2
 `
 
 type DeleteVotoParams struct {
@@ -121,9 +60,7 @@ func (q *Queries) DeleteVoto(ctx context.Context, arg DeleteVotoParams) error {
 }
 
 const getMateria = `-- name: GetMateria :one
-SELECT idMateria, nombre, cuatrimestre, descripcion
-FROM materia
-WHERE idMateria = $1
+SELECT idmateria, nombre, cuatrimestre, descripcion FROM materia WHERE idmateria = $1
 `
 
 func (q *Queries) GetMateria(ctx context.Context, idmateria int32) (Materia, error) {
@@ -139,9 +76,7 @@ func (q *Queries) GetMateria(ctx context.Context, idmateria int32) (Materia, err
 }
 
 const getUsuario = `-- name: GetUsuario :one
-SELECT idUsuario, nombre, apellido
-FROM usuario
-WHERE idUsuario = $1
+SELECT idusuario, nombre, apellido FROM usuario WHERE idusuario = $1
 `
 
 func (q *Queries) GetUsuario(ctx context.Context, idusuario int32) (Usuario, error) {
@@ -152,9 +87,9 @@ func (q *Queries) GetUsuario(ctx context.Context, idusuario int32) (Usuario, err
 }
 
 const getVoto = `-- name: GetVoto :one
-SELECT idUsuario, idMateria, puntuacion_dif, puntuacion_rel, puntuacion_gusto, descripcion,fecha_voto
+SELECT idusuario, idmateria, puntuacion_dif, puntuacion_rel, puntuacion_gusto, descripcion, fecha_voto
 FROM voto
-WHERE idUsuario = $1 AND idMateria = $2
+WHERE idusuario = $1 AND idmateria = $2
 `
 
 type GetVotoParams struct {
@@ -178,9 +113,9 @@ func (q *Queries) GetVoto(ctx context.Context, arg GetVotoParams) (Voto, error) 
 }
 
 const insertarMateria = `-- name: InsertarMateria :one
-INSERT INTO materia (idMateria, nombre, cuatrimestre, descripcion)
+INSERT INTO materia (idmateria, nombre, cuatrimestre, descripcion)
 VALUES ($1, $2, $3, $4)
-RETURNING idMateria, nombre, cuatrimestre, descripcion
+RETURNING idmateria, nombre, cuatrimestre, descripcion
 `
 
 type InsertarMateriaParams struct {
@@ -207,10 +142,54 @@ func (q *Queries) InsertarMateria(ctx context.Context, arg InsertarMateriaParams
 	return i, err
 }
 
+const insertarOActualizarVoto = `-- name: InsertarOActualizarVoto :one
+INSERT INTO voto (idusuario, idmateria, puntuacion_dif, puntuacion_rel, puntuacion_gusto, descripcion)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (idusuario, idmateria) 
+DO UPDATE SET
+    puntuacion_dif = EXCLUDED.puntuacion_dif,
+    puntuacion_rel = EXCLUDED.puntuacion_rel,
+    puntuacion_gusto = EXCLUDED.puntuacion_gusto,
+    descripcion = EXCLUDED.descripcion,
+    fecha_voto = CURRENT_TIMESTAMP
+RETURNING idusuario, idmateria, puntuacion_dif, puntuacion_rel, puntuacion_gusto, descripcion, fecha_voto
+`
+
+type InsertarOActualizarVotoParams struct {
+	Idusuario       int32          `json:"idusuario"`
+	Idmateria       int32          `json:"idmateria"`
+	PuntuacionDif   sql.NullInt32  `json:"puntuacion_dif"`
+	PuntuacionRel   sql.NullInt32  `json:"puntuacion_rel"`
+	PuntuacionGusto sql.NullInt32  `json:"puntuacion_gusto"`
+	Descripcion     sql.NullString `json:"descripcion"`
+}
+
+func (q *Queries) InsertarOActualizarVoto(ctx context.Context, arg InsertarOActualizarVotoParams) (Voto, error) {
+	row := q.db.QueryRowContext(ctx, insertarOActualizarVoto,
+		arg.Idusuario,
+		arg.Idmateria,
+		arg.PuntuacionDif,
+		arg.PuntuacionRel,
+		arg.PuntuacionGusto,
+		arg.Descripcion,
+	)
+	var i Voto
+	err := row.Scan(
+		&i.Idusuario,
+		&i.Idmateria,
+		&i.PuntuacionDif,
+		&i.PuntuacionRel,
+		&i.PuntuacionGusto,
+		&i.Descripcion,
+		&i.FechaVoto,
+	)
+	return i, err
+}
+
 const insertarUsuario = `-- name: InsertarUsuario :one
-INSERT INTO usuario (idUsuario, nombre, apellido)
+INSERT INTO usuario (idusuario, nombre, apellido)
 VALUES ($1, $2, $3)
-RETURNING idUsuario, nombre, apellido
+RETURNING idusuario, nombre, apellido
 `
 
 type InsertarUsuarioParams struct {
@@ -226,40 +205,14 @@ func (q *Queries) InsertarUsuario(ctx context.Context, arg InsertarUsuarioParams
 	return i, err
 }
 
-const insertarVoto = `-- name: InsertarVoto :exec
-INSERT INTO voto (idUsuario, idMateria, puntuacion_dif, puntuacion_rel, puntuacion_gusto, descripcion,fecha_voto)
-VALUES ($1, $2, $3, $4, $5, $6,$7)
-`
-
-type InsertarVotoParams struct {
-	Idusuario       int32          `json:"idusuario"`
-	Idmateria       int32          `json:"idmateria"`
-	PuntuacionDif   sql.NullInt32  `json:"puntuacion_dif"`
-	PuntuacionRel   sql.NullInt32  `json:"puntuacion_rel"`
-	PuntuacionGusto sql.NullInt32  `json:"puntuacion_gusto"`
-	Descripcion     sql.NullString `json:"descripcion"`
-	FechaVoto       time.Time      `json:"fecha_voto"`
-}
-
-func (q *Queries) InsertarVoto(ctx context.Context, arg InsertarVotoParams) error {
-	_, err := q.db.ExecContext(ctx, insertarVoto,
-		arg.Idusuario,
-		arg.Idmateria,
-		arg.PuntuacionDif,
-		arg.PuntuacionRel,
-		arg.PuntuacionGusto,
-		arg.Descripcion,
-		arg.FechaVoto,
-	)
-	return err
-}
-
 const listarMaterias = `-- name: ListarMaterias :many
-SELECT idMateria, nombre, cuatrimestre, descripcion
-FROM materia
-ORDER BY cuatrimestre, nombre
+
+SELECT idmateria, nombre, cuatrimestre, descripcion FROM materia ORDER BY idmateria
 `
 
+// =============================================================================
+// MATERIAS
+// =============================================================================
 func (q *Queries) ListarMaterias(ctx context.Context) ([]Materia, error) {
 	rows, err := q.db.QueryContext(ctx, listarMaterias)
 	if err != nil {
@@ -289,11 +242,15 @@ func (q *Queries) ListarMaterias(ctx context.Context) ([]Materia, error) {
 }
 
 const listarUsuarios = `-- name: ListarUsuarios :many
-SELECT idUsuario, nombre, apellido
-FROM usuario
-ORDER BY apellido, nombre
+
+
+SELECT idusuario, nombre, apellido FROM usuario ORDER BY idusuario
 `
 
+// queries.sql - Consultas SQL parametrizadas para sqlc (Usuarios, Materias y Votos con UPSERT)
+// =============================================================================
+// USUARIOS
+// =============================================================================
 func (q *Queries) ListarUsuarios(ctx context.Context) ([]Usuario, error) {
 	rows, err := q.db.QueryContext(ctx, listarUsuarios)
 	if err != nil {
@@ -318,50 +275,18 @@ func (q *Queries) ListarUsuarios(ctx context.Context) ([]Usuario, error) {
 }
 
 const listarVotosPorMateria = `-- name: ListarVotosPorMateria :many
-SELECT idUsuario, idMateria, puntuacion_dif, puntuacion_rel, puntuacion_gusto, descripcion,fecha_voto
+
+SELECT idusuario, idmateria, puntuacion_dif, puntuacion_rel, puntuacion_gusto, descripcion, fecha_voto
 FROM voto
-WHERE idMateria = $1
+WHERE idmateria = $1
+ORDER BY fecha_voto DESC
 `
 
+// =============================================================================
+// VOTOS / RESEÑAS
+// =============================================================================
 func (q *Queries) ListarVotosPorMateria(ctx context.Context, idmateria int32) ([]Voto, error) {
 	rows, err := q.db.QueryContext(ctx, listarVotosPorMateria, idmateria)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Voto
-	for rows.Next() {
-		var i Voto
-		if err := rows.Scan(
-			&i.Idusuario,
-			&i.Idmateria,
-			&i.PuntuacionDif,
-			&i.PuntuacionRel,
-			&i.PuntuacionGusto,
-			&i.Descripcion,
-			&i.FechaVoto,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listarVotosPorUsuario = `-- name: ListarVotosPorUsuario :many
-SELECT idUsuario, idMateria, puntuacion_dif, puntuacion_rel, puntuacion_gusto, descripcion,fecha_voto
-FROM voto
-WHERE idUsuario = $1
-`
-
-func (q *Queries) ListarVotosPorUsuario(ctx context.Context, idusuario int32) ([]Voto, error) {
-	rows, err := q.db.QueryContext(ctx, listarVotosPorUsuario, idusuario)
 	if err != nil {
 		return nil, err
 	}

@@ -1,9 +1,9 @@
 -- seed.sql - Datos de prueba iniciales para la base de datos apirest
 
 -- 1. Insertar Usuarios
-INSERT INTO usuario (idusuario, nombre, apellido, curso) VALUES
-  (1, 'Francisco', 'Turraspe', true),
-  (2, 'Matias', 'Canoa', true)
+INSERT INTO usuario (idusuario, nombre, apellido) VALUES
+  (1, 'Francisco', 'Turraspe'),
+  (2, 'Matias', 'Canoa')
 ON CONFLICT (idusuario) DO NOTHING;
 
 -- 2. Insertar Materias extraídas de la imagen del plan de estudios (organizadas por cuatrimestre)

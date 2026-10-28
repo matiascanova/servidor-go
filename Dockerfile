@@ -1,5 +1,5 @@
 # Dockerfile: Compilación multi-etapa para Go + Templ
-FROM golang:1.24-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 WORKDIR /app
 
@@ -7,7 +7,7 @@ WORKDIR /app
 RUN apk add --no-cache git
 
 # 2. Instalar el CLI de Templ
-RUN go install github.com/a-h/templ/cmd/templ@latest
+RUN go install github.com/a-h/templ/cmd/templ@v0.2.778
 
 COPY go.mod go.sum ./
 RUN go mod download || true

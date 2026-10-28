@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
 
-echo "=== Iniciando prueba de integración y verificación del TP5 ==="
+echo "=== Iniciando prueba de integración y verificación ==="
 
 # 1. Limpieza previa de infraestructura
 echo "1. Limpiando contenedores residuales..."
-docker compose down -v
+docker compose down -v 2>/dev/null || true
 
 # 2. Generación de código Templ
 echo "2. Compilando plantillas .templ..."
@@ -21,15 +21,15 @@ docker compose up -d
 
 # 4. Verificación de conectividad activa
 echo "4. Verificando disponibilidad de la BD..."
-until docker compose exec -T db pg_isready -U postgres -d apirest &> /dev/null; do
+until docker compose exec -T db pg_isready -U postgres -d apirest &> /dev/null || docker compose exec -T postgres-db pg_isready -U postgres -d apirest &> /dev/null; do
     echo "Esperando que PostgreSQL responda..."
     sleep 2
 done
 
-echo "¡PostgreSQL activo y listo para conexiones!"
+echo "PostgreSQL activo!"
 
 # 5. Verificación de la aplicación
 echo "5. Verificando compilación e integración..."
 go test -v ./... || echo "Pasos de verificación ejecutados."
 
-echo "=== Proceso finalizado exitosamente ==="
+echo "=== Proceso finalizado ==="

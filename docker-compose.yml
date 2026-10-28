@@ -10,7 +10,8 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data 
-      - ./sql/schema/schema.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./sql/schema/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./sql/schema/seed.sql:/docker-entrypoint-initdb.d/02-schema.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d apirest"]
       interval: 5s
@@ -24,7 +25,7 @@ services:
       dockerfile: Dockerfile
     container_name: go-api
     ports:
-      - "8081:8080"
+      - "8080:8080"
     environment:
       - DATABASE_URL=postgres://postgres:postgres@database:5432/apirest?sslmode=disable
     depends_on:
