@@ -60,7 +60,7 @@ chmod +x requests.sh
 
 ### 2. Pruebas Unitarias de Base de Datos (`test.sh` / `db_test.go`)
 
-Valida la capa de datos aislada utilizando la suite idiomática *Table-Driven Tests* de Go contra la base de datos de pruebas:
+Valida la capa de datos aislada utilizando la suite idiomática de Go contra la base de datos de pruebas:
 
 ```bash
 chmod +x test.sh
