@@ -29,26 +29,6 @@
 
 ---
 
-### Opción 2: Ejecución Local para Desarrollo (`go run main.go`)
-
-1. **Generar los componentes de Templ y las consultas de `sqlc`:**
-   ```bash
-   sqlc generate
-   templ generate
-   ```
-
-2. **Iniciar el contenedor de la base de datos PostgreSQL:**
-   ```bash
-   docker compose up -d postgres-db
-   ```
-
-3. **Ejecutar el servidor en Go:**
-   ```bash
-   go run main.go
-   ```
-
----
-
 ##  Pruebas Automatizadas 
 
 El repositorio incluye herramientas de testeo automatizado para garantizar el correcto funcionamiento del sistema:
