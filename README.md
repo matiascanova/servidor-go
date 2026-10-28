@@ -1,5 +1,26 @@
---TP1: COMO EJECUTAR
+# Instrucciones de ejecución
 
-1- Una vez descargado el archivo abrir una consola y cambiar el directorio a la carpeta descargada que contiene todos los archivos
-2- Dentro de la carpeta escribir: go run .
-3- Para ingresar a la pagina desde un navegador ir a la direccion "http://localhost:8080" 
+## Requisitos previos
+
+Se asume que el usuario ya tiene instalado:
+
+- Docker
+- Docker Compose
+- Go
+- sqlc
+
+## Pasos
+
+1. **Iniciar Docker** antes de ejecutar `requests.sh`.
+
+2. Una vez clonado el repositorio, darle permiso de ejecución al archivo `requests.sh` con el comando:
+
+```bash
+   chmod +x requests.sh
+```
+
+3. Ejecutar el comando de testeo desde la consola:
+
+```bash
+   ./requests.sh
+```

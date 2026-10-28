@@ -1,0 +1,41 @@
+package views
+
+import (
+	"fmt"
+	"tp2_entrega/db"
+)
+
+// EntityForm renderiza el formulario para registrar una reseña sobre una materia específica
+templ EntityForm(materia db.Materia) {
+	@Layout("Calificar " + materia.Nombre) {
+		<section class="form-section">
+			<h2>Agregar reseña para { materia.Nombre }</h2>
+			<form action="/votos" method="POST">
+				<!-- ID de la materia vinculado explícitamente -->
+				<input type="hidden" name="idmateria" value={ fmt.Sprintf("%d", materia.Idmateria) }/>
+				
+				<div class="ratings-row">
+					<div class="form-group">
+						<label for="puntuacion_dif">Dificultad (1-5):</label>
+						<input type="number" id="puntuacion_dif" name="puntuacion_dif" min="1" max="5" required/>
+					</div>
+					<div class="form-group">
+						<label for="puntuacion_rel">Relevancia (1-5):</label>
+						<input type="number" id="puntuacion_rel" name="puntuacion_rel" min="1" max="5" required/>
+					</div>
+					<div class="form-group">
+						<label for="puntuacion_gusto">Gusto Personal (1-5):</label>
+						<input type="number" id="puntuacion_gusto" name="puntuacion_gusto" min="1" max="5" required/>
+					</div>
+				</div>
+
+				<div class="form-group">
+					<label for="descripcion">Comentario / Opinión:</label>
+					<textarea id="descripcion" name="descripcion" rows="3" placeholder="Escribe tu opinión sobre la cursada..."></textarea>
+				</div>
+
+				<button type="submit" class="btn-submit">Guardar Reseña</button>
+			</form>
+		</section>
+	}
+}
