@@ -53,7 +53,7 @@
 
 El repositorio incluye herramientas de testeo automatizado para garantizar el correcto funcionamiento del sistema:
 
-### 1. Pruebas de Integración HTTP (`requests-v11.sh`)
+### 1. Pruebas de Integración HTTP (`requests.sh`)
 
 Este script valida de punta a punta la API REST y el comportamiento del servidor mediante peticiones HTTP reales enviadas con `curl`.
 
@@ -72,8 +72,8 @@ Este script valida de punta a punta la API REST y el comportamiento del servidor
 
 Para ejecutar la suite de integración HTTP:
 ```bash
-chmod +x requests-v11.sh
-./requests-v11.sh
+chmod +x requests.sh
+./requests.sh
 ```
 
 ---
