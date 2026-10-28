@@ -50,7 +50,7 @@ Este script valida de punta a punta la API REST y el comportamiento del servidor
    * **Limpieza de entidades:** Elimina los datos de prueba (`DELETE 204`).
 7. **Limpieza automática al finalizar:** Ejecuta un *trap* que apaga los contenedores y elimina volúmenes al concluir el test.
 
-Para ejecutar la suite de integración HTTP:
+Para ejecutar:
 ```bash
 chmod +x requests.sh
 ./requests.sh
