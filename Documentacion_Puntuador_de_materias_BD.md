@@ -152,7 +152,7 @@ Al eliminar un usuario o una materia se eliminan también todos sus votos.
 
 ### Datos iniciales (`seed.sql`)
 
-El script de datos iniciales carga dos usuarios base y las materias de la carrera. El formulario web registra los votos con el usuario de **id 1**, por lo que ese usuario debe existir.
+El script de datos iniciales carga dos usuarios base y las materias de la carrera. Para las pruebas y esta primera instancia que no cuenta con inicio de sesion se utiliza la id: 1 
 
 ---
 
