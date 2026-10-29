@@ -142,7 +142,6 @@ body {
     font-weight: 700;
 }
 
-/* Botones de acción inferiores */
 .card-actions {
     display: flex;
     gap: 6px;
@@ -171,3 +170,4 @@ body {
     color: #1f6f7d;
     border-color: #ffffff;
 }
+
