@@ -32,7 +32,7 @@
 
 ---
 
-## 3. Ejecutar las pruebas
+## 3. Ejecutar las pruebas desde cero
 
 ```bash
 make test-full
