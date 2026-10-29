@@ -5,11 +5,9 @@
 
 ### Obligatorios
 
-| Herramienta | Para qué | Verificar con |
-|---|---|---|
-| **Docker** (Docker Desktop en Windows/macOS, Docker Engine en Linux) con **Docker Compose v2** | Levantar la base de datos y la API | `docker --version` y `docker compose version` |
-| **Make** | Usar los atajos del `Makefile` | `make --version` |
-| **curl** | Lo usa `make wait` para esperar a la API | `curl --version` |
+**Docker**
+**Make**
+**curl**
 
 >  **Docker tiene que estar iniciado antes de ejecutar cualquier comando.**
 
