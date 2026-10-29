@@ -1,0 +1,36 @@
+package views
+
+import (
+	"fmt"
+	"tp2_entrega/db"
+)
+
+// MateriaResenas renderiza las reseñas cargadas para una materia específica
+templ MateriaResenas(materia db.Materia, votos []db.Voto) {
+	@Layout("Reseñas de " + materia.Nombre) {
+		<section class="resenas-section">
+			<h2>Reseñas de { materia.Nombre }</h2>
+			if len(votos) == 0 {
+				<p class="no-data">Aún no hay reseñas registradas para esta materia.</p>
+			} else {
+				<div class="votos-list">
+					for _, v := range votos {
+						<article class="voto-card">
+							<div class="scores-grid">
+								<p><strong>Dificultad:</strong> { fmt.Sprintf("%d", v.PuntuacionDif.Int32) }/5</p>
+								<p><strong>Relevancia:</strong> { fmt.Sprintf("%d", v.PuntuacionRel.Int32) }/5</p>
+								<p><strong>Gusto:</strong> { fmt.Sprintf("%d", v.PuntuacionGusto.Int32) }/5</p>
+							</div>
+							if v.Descripcion.Valid && v.Descripcion.String != "" {
+								<p class="comentario">"{ v.Descripcion.String }"</p>
+							}
+						</article>
+					}
+				</div>
+			}
+			<div class="back-link-container">
+				<a href="/" class="btn-back">← Volver al Plan de Materias</a>
+			</div>
+		</section>
+	}
+}

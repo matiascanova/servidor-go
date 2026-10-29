@@ -1,0 +1,10 @@
+package views
+
+import "tp2_entrega/db"
+
+// IndexPage integra el Layout base con la grilla de materias
+templ IndexPage(materias []db.Materia) {
+	@Layout("Foro de Exactas - Plan de Materias") {
+		@EntityList(materias)
+	}
+}
