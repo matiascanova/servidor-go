@@ -5,8 +5,8 @@
 
 ### Obligatorios
 
-**Docker**
-**Make**
+**Docker** /
+**Make** /
 **curl**
 
 >  **Docker tiene que estar iniciado antes de ejecutar cualquier comando.**
