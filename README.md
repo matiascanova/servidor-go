@@ -17,10 +17,6 @@
 
 2. **ir a carpeta de proyecto** :
 
-   ```bash
-   cd ruta/al/proyecto
-   ```
-
 3. **Levantar la base de datos y la API:**
 
    ```bash
