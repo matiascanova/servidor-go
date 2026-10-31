@@ -1,41 +1,21 @@
-# Foro de Alumnos – Exactas UNICEN
+# Foro de Alumnos - Exactas UNICEN
 
-**cómo ejecutar la aplicación y sus funciones**
-## 1. Requisitos previos
+## Requisitos
 
-### Obligatorios
+- Go 1.22 o superior
+- Docker con Docker Compose
+- make
+- [templ](https://templ.guide) y [sqlc](https://sqlc.dev):
+  ```bash
+  go install github.com/a-h/templ/cmd/templ@v0.2.778
+  go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+  ```
+- [Hurl](https://hurl.dev) (solo para las pruebas)
 
-**Docker** /
-**Make** /
-**curl**
-
->  **Docker tiene que estar iniciado antes de ejecutar cualquier comando.**
-
-## 2. Ejecutar la aplicación
-
-1. **Iniciár Docker** y confirmá con `docker info`.
-
-2. **ir a carpeta de proyecto** :
-
-3. **Levantar la base de datos y la API:**
-
-   ```bash
-   make up
-   ```
-4. **Abrí el navegador** en <http://localhost:8080>.
-
-5. **Detener todo (borra datos cargados):**
-
-   ```bash
-   make down
-   ```
-
----
-
-## 3. Ejecutar las pruebas desde cero
+## Comandos
 
 ```bash
-make test-full
+make        # genera el código, levanta la base de datos y corre la app en http://localhost:8080
+make test   # corre las pruebas (con la app ya corriendo, en otra terminal)
+make down   # detiene la base de datos y borra sus datos
 ```
-
-

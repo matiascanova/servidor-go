@@ -10,6 +10,39 @@ import (
 	"database/sql"
 )
 
+const actualizarMateria = `-- name: ActualizarMateria :one
+UPDATE materia
+SET nombre = $1,
+    cuatrimestre = $2,
+    descripcion = $3
+WHERE idMateria = $4
+RETURNING idmateria, nombre, cuatrimestre, descripcion
+`
+
+type ActualizarMateriaParams struct {
+	Nombre       string         `json:"nombre"`
+	Cuatrimestre int32          `json:"cuatrimestre"`
+	Descripcion  sql.NullString `json:"descripcion"`
+	Idmateria    int32          `json:"idmateria"`
+}
+
+func (q *Queries) ActualizarMateria(ctx context.Context, arg ActualizarMateriaParams) (Materia, error) {
+	row := q.db.QueryRowContext(ctx, actualizarMateria,
+		arg.Nombre,
+		arg.Cuatrimestre,
+		arg.Descripcion,
+		arg.Idmateria,
+	)
+	var i Materia
+	err := row.Scan(
+		&i.Idmateria,
+		&i.Nombre,
+		&i.Cuatrimestre,
+		&i.Descripcion,
+	)
+	return i, err
+}
+
 const actualizarUsuario = `-- name: ActualizarUsuario :exec
 UPDATE usuario
 SET nombre = $2, apellido = $3

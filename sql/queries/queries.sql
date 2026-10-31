@@ -39,6 +39,14 @@ INSERT INTO materia (idmateria, nombre, cuatrimestre, descripcion)
 VALUES ($1, $2, $3, $4)
 RETURNING idmateria, nombre, cuatrimestre, descripcion;
 
+-- name: ActualizarMateria :one
+UPDATE materia
+SET nombre = $1,
+    cuatrimestre = $2,
+    descripcion = $3
+WHERE idMateria = $4
+RETURNING *;
+
 -- name: DeleteMateria :exec
 DELETE FROM materia WHERE idmateria = $1;
 
