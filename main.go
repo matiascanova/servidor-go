@@ -22,6 +22,7 @@ import (
 	"tp2_entrega/views"
 )
 
+// CONFIGURACION
 const usuarioDemoID int32 = 1
 
 type Server struct {
@@ -29,6 +30,7 @@ type Server struct {
 	dbConn  *sql.DB
 }
 
+// DTOs
 type UsuarioDTO struct {
 	ID       int32  `json:"idusuario"`
 	Nombre   string `json:"nombre"`
@@ -51,6 +53,7 @@ type VotoDTO struct {
 	Descripcion     *string `json:"descripcion"`
 }
 
+// CONVERSIONES
 func intPtr(n sql.NullInt32) *int32 {
 	if !n.Valid {
 		return nil
@@ -105,6 +108,7 @@ func toVotoDTO(v db.Voto) VotoDTO {
 	}
 }
 
+// VALIDACIONES
 func (d UsuarioDTO) validate() error {
 	if strings.TrimSpace(d.Nombre) == "" || strings.TrimSpace(d.Apellido) == "" {
 		return errors.New("nombre y apellido son obligatorios")
@@ -149,6 +153,7 @@ func (d VotoDTO) validate() error {
 	return nil
 }
 
+// HELPERS HTTP
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
@@ -177,11 +182,11 @@ func classifyDBError(err error) (int, string) {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
 		switch pgErr.Code {
-		case "23505": // unique_violation
+		case "23505":
 			return http.StatusConflict, "el recurso ya existe"
-		case "23503": // foreign_key_violation
+		case "23503":
 			return http.StatusBadRequest, "referencia a un recurso inexistente"
-		case "23502", "23514", "22001", "22003", "22P02": // not null, check, longitud, rango, formato
+		case "23502", "23514", "22001", "22003", "22P02":
 			return http.StatusBadRequest, "datos inválidos"
 		}
 	}
@@ -219,6 +224,7 @@ func isJSONRequest(r *http.Request) bool {
 	return err == nil && mt == "application/json"
 }
 
+// INICIALIZACION
 func initDB() (*sql.DB, *db.Queries, error) {
 	connStr := os.Getenv("DATABASE_URL")
 	if connStr == "" {
@@ -299,33 +305,35 @@ func envOr(key, def string) string {
 	return def
 }
 
+// RUTAS
 func (s *Server) routes() http.Handler {
 	mux := http.NewServeMux()
 
-	// Archivos estáticos
+	// ESTATICOS
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 
-	// Vistas HTML (templ)
+	// HTML
 	mux.HandleFunc("GET /{$}", s.homeHandler)
 	mux.HandleFunc("GET /materias/calificar", s.calificarHandler)
 	mux.HandleFunc("GET /materias/resenas", s.resenasHandler)
 
-	// API JSON - Usuarios
+	// USUARIOS
 	mux.HandleFunc("GET /usuarios", s.listarUsuarios)
 	mux.HandleFunc("POST /usuarios", s.crearUsuario)
 	mux.HandleFunc("GET /usuarios/{id}", s.obtenerUsuario)
 	mux.HandleFunc("PUT /usuarios/{id}", s.actualizarUsuario)
 	mux.HandleFunc("DELETE /usuarios/{id}", s.eliminarUsuario)
 
-	// API JSON - Materias
+	// MATERIAS
 	mux.HandleFunc("GET /materias", s.listarMaterias)
 	mux.HandleFunc("POST /materias", s.crearMateria)
 	mux.HandleFunc("GET /materias/{id}", s.obtenerMateria)
 	mux.HandleFunc("PUT /materias/{id}", s.actualizarMateria)
 	mux.HandleFunc("DELETE /materias/{id}", s.eliminarMateria)
 
-	// Votos: POST /votos atiende formulario HTML (PRG) y JSON según Content-Type
+	// VOTOS
 	mux.HandleFunc("POST /votos", s.crearVotoHandler)
+	mux.HandleFunc("POST /votos/eliminar", s.eliminarVotoForm)
 	mux.HandleFunc("GET /votos", s.listarVotos)
 	mux.HandleFunc("GET /votos/{idusuario}/{idmateria}", s.obtenerVoto)
 	mux.HandleFunc("PUT /votos/{idusuario}/{idmateria}", s.actualizarVoto)
@@ -376,7 +384,6 @@ func (s *Server) calificarHandler(w http.ResponseWriter, r *http.Request) {
 	case err == nil:
 		votoPtr = &voto
 	case errors.Is(err, sql.ErrNoRows):
-
 	default:
 		log.Printf("GetVoto: %v", err)
 		http.Error(w, "Error interno", http.StatusInternalServerError)
@@ -421,7 +428,6 @@ func (s *Server) resenasHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // VOTOS
-// guardarVoto inserta o actualiza (upsert) un voto ya validado.
 func (s *Server) guardarVoto(ctx context.Context, d VotoDTO) error {
 	_, err := s.queries.InsertarOActualizarVoto(ctx, db.InsertarOActualizarVotoParams{
 		Idusuario:       d.IDUsuario,
@@ -486,6 +492,29 @@ func (s *Server) crearVotoForm(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
+func (s *Server) eliminarVotoForm(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Formulario inválido", http.StatusBadRequest)
+		return
+	}
+	idMateria, err := formInt(r, "idmateria")
+	if err != nil || idMateria <= 0 {
+		http.Error(w, "ID de materia inválido", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.queries.DeleteVoto(r.Context(), db.DeleteVotoParams{
+		Idusuario: usuarioDemoID,
+		Idmateria: idMateria,
+	}); err != nil {
+		status, msg := classifyDBError(err)
+		http.Error(w, msg, status)
+		return
+	}
+
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
 func (s *Server) crearVotoJSON(w http.ResponseWriter, r *http.Request) {
 	var dto VotoDTO
 	if !decodeJSON(w, r, &dto) {
@@ -496,7 +525,6 @@ func (s *Server) crearVotoJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// POST crea: si ya existe se informa conflicto (para modificar existe PUT).
 	_, err := s.queries.GetVoto(r.Context(), db.GetVotoParams{Idusuario: dto.IDUsuario, Idmateria: dto.IDMateria})
 	if err == nil {
 		writeError(w, http.StatusConflict, "el voto ya existe")
@@ -532,7 +560,7 @@ func (s *Server) listarVotos(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out := make([]VotoDTO, 0, len(votos)) 
+	out := make([]VotoDTO, 0, len(votos))
 	for _, v := range votos {
 		out = append(out, toVotoDTO(v))
 	}
@@ -571,7 +599,7 @@ func (s *Server) actualizarVoto(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &dto) {
 		return
 	}
-	dto.IDUsuario, dto.IDMateria = idUsuario, idMateria 
+	dto.IDUsuario, dto.IDMateria = idUsuario, idMateria
 	if err := dto.validate(); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -603,10 +631,10 @@ func (s *Server) eliminarVoto(w http.ResponseWriter, r *http.Request) {
 		dbError(w, err, "")
 		return
 	}
-	w.WriteHeader(http.StatusNoContent) 
+	w.WriteHeader(http.StatusNoContent)
 }
 
-// MATERIAS (JSON)
+// MATERIAS
 func (s *Server) listarMaterias(w http.ResponseWriter, r *http.Request) {
 	materias, err := s.queries.ListarMaterias(r.Context())
 	if err != nil {
@@ -708,7 +736,7 @@ func (s *Server) eliminarMateria(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// USUARIOS (JSON)
+// USUARIOS
 func (s *Server) listarUsuarios(w http.ResponseWriter, r *http.Request) {
 	usuarios, err := s.queries.ListarUsuarios(r.Context())
 	if err != nil {

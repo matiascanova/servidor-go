@@ -243,9 +243,7 @@ const listarMaterias = `-- name: ListarMaterias :many
 SELECT idmateria, nombre, cuatrimestre, descripcion FROM materia ORDER BY idmateria
 `
 
-// =============================================================================
 // MATERIAS
-// =============================================================================
 func (q *Queries) ListarMaterias(ctx context.Context) ([]Materia, error) {
 	rows, err := q.db.QueryContext(ctx, listarMaterias)
 	if err != nil {
@@ -276,14 +274,10 @@ func (q *Queries) ListarMaterias(ctx context.Context) ([]Materia, error) {
 
 const listarUsuarios = `-- name: ListarUsuarios :many
 
-
 SELECT idusuario, nombre, apellido FROM usuario ORDER BY idusuario
 `
 
-// queries.sql - Consultas SQL parametrizadas para sqlc (Usuarios, Materias y Votos con UPSERT)
-// =============================================================================
 // USUARIOS
-// =============================================================================
 func (q *Queries) ListarUsuarios(ctx context.Context) ([]Usuario, error) {
 	rows, err := q.db.QueryContext(ctx, listarUsuarios)
 	if err != nil {
@@ -315,9 +309,7 @@ WHERE idmateria = $1
 ORDER BY fecha_voto DESC
 `
 
-// =============================================================================
 // VOTOS / RESEÑAS
-// =============================================================================
 func (q *Queries) ListarVotosPorMateria(ctx context.Context, idmateria int32) ([]Voto, error) {
 	rows, err := q.db.QueryContext(ctx, listarVotosPorMateria, idmateria)
 	if err != nil {

@@ -5,7 +5,6 @@ import (
 	"tp2_entrega/db"
 )
 
-// scoreInput renderiza un campo numérico 1-5 con su etiqueta.
 templ scoreInput(id string, label string, value string) {
 	<div class="form-group">
 		<label for={ id }>{ label }</label>
@@ -13,7 +12,6 @@ templ scoreInput(id string, label string, value string) {
 	</div>
 }
 
-// EntityForm renderiza el formulario para registrar o editar una reseña sobre una materia
 templ EntityForm(materia db.Materia, voto *db.Voto) {
 	@Layout(formTitle(materia, voto)) {
 		<section class="form-section">
@@ -40,6 +38,11 @@ templ EntityForm(materia db.Materia, voto *db.Voto) {
 						Guardar Reseña
 					}
 				</button>
+				if voto != nil {
+					<button type="submit" formaction="/votos/eliminar" formnovalidate class="btn-delete" onclick="return confirm('¿Eliminar tu reseña?')">
+						Eliminar reseña
+					</button>
+				}
 			</form>
 		</section>
 	}

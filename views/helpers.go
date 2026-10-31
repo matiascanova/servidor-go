@@ -8,7 +8,7 @@ import (
 	"tp2_entrega/db"
 )
 
-// nullIntStr devuelve el número como texto, o "" si es NULL (para value="" de inputs).
+// HELPERS
 func nullIntStr(n sql.NullInt32) string {
 	if !n.Valid {
 		return ""
@@ -51,7 +51,6 @@ func formTitle(m db.Materia, v *db.Voto) string {
 	return "Calificar " + m.Nombre
 }
 
-// scoreLabel muestra "N/5" o "—" cuando la puntuación es NULL.
 func scoreLabel(n sql.NullInt32) string {
 	if !n.Valid {
 		return "—"

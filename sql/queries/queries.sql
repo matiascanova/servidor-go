@@ -1,8 +1,4 @@
--- queries.sql - Consultas SQL parametrizadas para sqlc (Usuarios, Materias y Votos con UPSERT)
-
--- =============================================================================
 -- USUARIOS
--- =============================================================================
 
 -- name: ListarUsuarios :many
 SELECT idusuario, nombre, apellido FROM usuario ORDER BY idusuario;
@@ -24,9 +20,7 @@ WHERE idusuario = $1;
 DELETE FROM usuario WHERE idusuario = $1;
 
 
--- =============================================================================
 -- MATERIAS
--- =============================================================================
 
 -- name: ListarMaterias :many
 SELECT idmateria, nombre, cuatrimestre, descripcion FROM materia ORDER BY idmateria;
@@ -51,9 +45,7 @@ RETURNING *;
 DELETE FROM materia WHERE idmateria = $1;
 
 
--- =============================================================================
 -- VOTOS / RESEÑAS
--- =============================================================================
 
 -- name: ListarVotosPorMateria :many
 SELECT idusuario, idmateria, puntuacion_dif, puntuacion_rel, puntuacion_gusto, descripcion, fecha_voto
