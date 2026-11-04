@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"mime"
 	"net/http"
 	"os"
 	"strconv"
@@ -203,25 +202,46 @@ func dbError(w http.ResponseWriter, err error, notFoundMsg string) {
 	writeError(w, status, msg)
 }
 
-func pathID(r *http.Request, name string) (int32, bool) {
-	n, err := strconv.ParseInt(r.PathValue(name), 10, 32)
+func parseID(raw string) (int32, bool) {
+	n, err := strconv.ParseInt(raw, 10, 32)
 	if err != nil || n <= 0 {
 		return 0, false
 	}
 	return int32(n), true
 }
 
-func queryID(r *http.Request, name string) (int32, bool) {
-	n, err := strconv.ParseInt(r.URL.Query().Get(name), 10, 32)
-	if err != nil || n <= 0 {
-		return 0, false
+func withID(msg string, h func(w http.ResponseWriter, r *http.Request, id int32)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, ok := parseID(r.PathValue("id"))
+		if !ok {
+			writeError(w, http.StatusBadRequest, msg)
+			return
+		}
+		h(w, r, id)
 	}
-	return int32(n), true
 }
 
-func isJSONRequest(r *http.Request) bool {
-	mt, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
-	return err == nil && mt == "application/json"
+func withVotoIDs(h func(w http.ResponseWriter, r *http.Request, idUsuario, idMateria int32)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		idUsuario, ok1 := parseID(r.PathValue("idusuario"))
+		idMateria, ok2 := parseID(r.PathValue("idmateria"))
+		if !ok1 || !ok2 {
+			writeError(w, http.StatusBadRequest, "IDs inválidos")
+			return
+		}
+		h(w, r, idUsuario, idMateria)
+	}
+}
+
+func withQueryID(h func(w http.ResponseWriter, r *http.Request, id int32)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, ok := parseID(r.URL.Query().Get("id"))
+		if !ok {
+			http.Error(w, "ID de materia inválido", http.StatusBadRequest)
+			return
+		}
+		h(w, r, id)
+	}
 }
 
 // INICIALIZACION
@@ -252,22 +272,6 @@ func initDB() (*sql.DB, *db.Queries, error) {
 	return nil, nil, fmt.Errorf("error al conectar con la BD: %w", err)
 }
 
-func (s *Server) ensureDemoUser(ctx context.Context) error {
-	_, err := s.queries.GetUsuario(ctx, usuarioDemoID)
-	if err == nil {
-		return nil
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return err
-	}
-	_, err = s.queries.InsertarUsuario(ctx, db.InsertarUsuarioParams{
-		Idusuario: usuarioDemoID,
-		Nombre:    "Alumno",
-		Apellido:  "Demo",
-	})
-	return err
-}
-
 func main() {
 	log.Println("Iniciando servidor Web y API REST...")
 
@@ -279,12 +283,8 @@ func main() {
 
 	server := &Server{queries: queries, dbConn: dbConn}
 
-	if err := server.ensureDemoUser(context.Background()); err != nil {
-		log.Fatalf("No se pudo asegurar el usuario demo: %v", err)
-	}
-
 	httpServer := &http.Server{
-		Addr:         ":" + envOr("PORT", "8080"),
+		Addr:         ":8080",
 		Handler:      server.routes(),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
@@ -298,13 +298,6 @@ func main() {
 	}
 }
 
-func envOr(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return def
-}
-
 // RUTAS
 func (s *Server) routes() http.Handler {
 	mux := http.NewServeMux()
@@ -314,30 +307,30 @@ func (s *Server) routes() http.Handler {
 
 	// HTML
 	mux.HandleFunc("GET /{$}", s.homeHandler)
-	mux.HandleFunc("GET /materias/calificar", s.calificarHandler)
-	mux.HandleFunc("GET /materias/resenas", s.resenasHandler)
+	mux.HandleFunc("GET /materias/calificar", withQueryID(s.calificarHandler))
+	mux.HandleFunc("GET /materias/resenas", withQueryID(s.resenasHandler))
 
 	// USUARIOS
 	mux.HandleFunc("GET /usuarios", s.listarUsuarios)
 	mux.HandleFunc("POST /usuarios", s.crearUsuario)
-	mux.HandleFunc("GET /usuarios/{id}", s.obtenerUsuario)
-	mux.HandleFunc("PUT /usuarios/{id}", s.actualizarUsuario)
-	mux.HandleFunc("DELETE /usuarios/{id}", s.eliminarUsuario)
+	mux.HandleFunc("GET /usuarios/{id}", withID("ID de usuario inválido", s.obtenerUsuario))
+	mux.HandleFunc("PUT /usuarios/{id}", withID("ID de usuario inválido", s.actualizarUsuario))
+	mux.HandleFunc("DELETE /usuarios/{id}", withID("ID de usuario inválido", s.eliminarUsuario))
 
 	// MATERIAS
 	mux.HandleFunc("GET /materias", s.listarMaterias)
 	mux.HandleFunc("POST /materias", s.crearMateria)
-	mux.HandleFunc("GET /materias/{id}", s.obtenerMateria)
-	mux.HandleFunc("PUT /materias/{id}", s.actualizarMateria)
-	mux.HandleFunc("DELETE /materias/{id}", s.eliminarMateria)
+	mux.HandleFunc("GET /materias/{id}", withID("ID de materia inválido", s.obtenerMateria))
+	mux.HandleFunc("PUT /materias/{id}", withID("ID de materia inválido", s.actualizarMateria))
+	mux.HandleFunc("DELETE /materias/{id}", withID("ID de materia inválido", s.eliminarMateria))
 
 	// VOTOS
 	mux.HandleFunc("POST /votos", s.crearVotoHandler)
 	mux.HandleFunc("POST /votos/eliminar", s.eliminarVotoForm)
 	mux.HandleFunc("GET /votos", s.listarVotos)
-	mux.HandleFunc("GET /votos/{idusuario}/{idmateria}", s.obtenerVoto)
-	mux.HandleFunc("PUT /votos/{idusuario}/{idmateria}", s.actualizarVoto)
-	mux.HandleFunc("DELETE /votos/{idusuario}/{idmateria}", s.eliminarVoto)
+	mux.HandleFunc("GET /votos/{idusuario}/{idmateria}", withVotoIDs(s.obtenerVoto))
+	mux.HandleFunc("PUT /votos/{idusuario}/{idmateria}", withVotoIDs(s.actualizarVoto))
+	mux.HandleFunc("DELETE /votos/{idusuario}/{idmateria}", withVotoIDs(s.eliminarVoto))
 
 	return mux
 }
@@ -357,13 +350,7 @@ func (s *Server) homeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) calificarHandler(w http.ResponseWriter, r *http.Request) {
-	idMateria, ok := queryID(r, "id")
-	if !ok {
-		http.Error(w, "ID de materia inválido", http.StatusBadRequest)
-		return
-	}
-
+func (s *Server) calificarHandler(w http.ResponseWriter, r *http.Request, idMateria int32) {
 	materia, err := s.queries.GetMateria(r.Context(), idMateria)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -396,13 +383,7 @@ func (s *Server) calificarHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) resenasHandler(w http.ResponseWriter, r *http.Request) {
-	id, ok := queryID(r, "id")
-	if !ok {
-		http.Error(w, "ID de materia inválido", http.StatusBadRequest)
-		return
-	}
-
+func (s *Server) resenasHandler(w http.ResponseWriter, r *http.Request, id int32) {
 	materia, err := s.queries.GetMateria(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -441,10 +422,6 @@ func (s *Server) guardarVoto(ctx context.Context, d VotoDTO) error {
 }
 
 func (s *Server) crearVotoHandler(w http.ResponseWriter, r *http.Request) {
-	if isJSONRequest(r) {
-		s.crearVotoJSON(w, r)
-		return
-	}
 	s.crearVotoForm(w, r)
 }
 
@@ -488,8 +465,7 @@ func (s *Server) crearVotoForm(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, msg, status)
 		return
 	}
-
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+    http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func (s *Server) eliminarVotoForm(w http.ResponseWriter, r *http.Request) {
@@ -515,41 +491,8 @@ func (s *Server) eliminarVotoForm(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-func (s *Server) crearVotoJSON(w http.ResponseWriter, r *http.Request) {
-	var dto VotoDTO
-	if !decodeJSON(w, r, &dto) {
-		return
-	}
-	if err := dto.validate(); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	_, err := s.queries.GetVoto(r.Context(), db.GetVotoParams{Idusuario: dto.IDUsuario, Idmateria: dto.IDMateria})
-	if err == nil {
-		writeError(w, http.StatusConflict, "el voto ya existe")
-		return
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		dbError(w, err, "")
-		return
-	}
-
-	if err := s.guardarVoto(r.Context(), dto); err != nil {
-		dbError(w, err, "")
-		return
-	}
-	v, err := s.queries.GetVoto(r.Context(), db.GetVotoParams{Idusuario: dto.IDUsuario, Idmateria: dto.IDMateria})
-	if err != nil {
-		dbError(w, err, "Voto no encontrado")
-		return
-	}
-	w.Header().Set("Location", fmt.Sprintf("/votos/%d/%d", dto.IDUsuario, dto.IDMateria))
-	writeJSON(w, http.StatusCreated, toVotoDTO(v))
-}
-
 func (s *Server) listarVotos(w http.ResponseWriter, r *http.Request) {
-	id, ok := queryID(r, "idmateria")
+	id, ok := parseID(r.URL.Query().Get("idmateria"))
 	if !ok {
 		writeError(w, http.StatusBadRequest, "idmateria es obligatorio y debe ser positivo")
 		return
@@ -567,21 +510,7 @@ func (s *Server) listarVotos(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-func votoIDs(w http.ResponseWriter, r *http.Request) (int32, int32, bool) {
-	idUsuario, ok1 := pathID(r, "idusuario")
-	idMateria, ok2 := pathID(r, "idmateria")
-	if !ok1 || !ok2 {
-		writeError(w, http.StatusBadRequest, "IDs inválidos")
-		return 0, 0, false
-	}
-	return idUsuario, idMateria, true
-}
-
-func (s *Server) obtenerVoto(w http.ResponseWriter, r *http.Request) {
-	idUsuario, idMateria, ok := votoIDs(w, r)
-	if !ok {
-		return
-	}
+func (s *Server) obtenerVoto(w http.ResponseWriter, r *http.Request, idUsuario, idMateria int32) {
 	v, err := s.queries.GetVoto(r.Context(), db.GetVotoParams{Idusuario: idUsuario, Idmateria: idMateria})
 	if err != nil {
 		dbError(w, err, "Voto no encontrado")
@@ -590,11 +519,7 @@ func (s *Server) obtenerVoto(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toVotoDTO(v))
 }
 
-func (s *Server) actualizarVoto(w http.ResponseWriter, r *http.Request) {
-	idUsuario, idMateria, ok := votoIDs(w, r)
-	if !ok {
-		return
-	}
+func (s *Server) actualizarVoto(w http.ResponseWriter, r *http.Request, idUsuario, idMateria int32) {
 	var dto VotoDTO
 	if !decodeJSON(w, r, &dto) {
 		return
@@ -622,11 +547,7 @@ func (s *Server) actualizarVoto(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toVotoDTO(v))
 }
 
-func (s *Server) eliminarVoto(w http.ResponseWriter, r *http.Request) {
-	idUsuario, idMateria, ok := votoIDs(w, r)
-	if !ok {
-		return
-	}
+func (s *Server) eliminarVoto(w http.ResponseWriter, r *http.Request, idUsuario, idMateria int32) {
 	if err := s.queries.DeleteVoto(r.Context(), db.DeleteVotoParams{Idusuario: idUsuario, Idmateria: idMateria}); err != nil {
 		dbError(w, err, "")
 		return
@@ -680,12 +601,7 @@ func (s *Server) crearMateria(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, toMateriaDTO(m))
 }
 
-func (s *Server) obtenerMateria(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathID(r, "id")
-	if !ok {
-		writeError(w, http.StatusBadRequest, "ID de materia inválido")
-		return
-	}
+func (s *Server) obtenerMateria(w http.ResponseWriter, r *http.Request, id int32) {
 	m, err := s.queries.GetMateria(r.Context(), id)
 	if err != nil {
 		dbError(w, err, "Materia no encontrada")
@@ -694,12 +610,7 @@ func (s *Server) obtenerMateria(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toMateriaDTO(m))
 }
 
-func (s *Server) actualizarMateria(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathID(r, "id")
-	if !ok {
-		writeError(w, http.StatusBadRequest, "ID de materia inválido")
-		return
-	}
+func (s *Server) actualizarMateria(w http.ResponseWriter, r *http.Request, id int32) {
 	var dto MateriaDTO
 	if !decodeJSON(w, r, &dto) {
 		return
@@ -723,12 +634,7 @@ func (s *Server) actualizarMateria(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toMateriaDTO(m))
 }
 
-func (s *Server) eliminarMateria(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathID(r, "id")
-	if !ok {
-		writeError(w, http.StatusBadRequest, "ID de materia inválido")
-		return
-	}
+func (s *Server) eliminarMateria(w http.ResponseWriter, r *http.Request, id int32) {
 	if err := s.queries.DeleteMateria(r.Context(), id); err != nil {
 		dbError(w, err, "")
 		return
@@ -781,12 +687,7 @@ func (s *Server) crearUsuario(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, toUsuarioDTO(u))
 }
 
-func (s *Server) obtenerUsuario(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathID(r, "id")
-	if !ok {
-		writeError(w, http.StatusBadRequest, "ID de usuario inválido")
-		return
-	}
+func (s *Server) obtenerUsuario(w http.ResponseWriter, r *http.Request, id int32) {
 	u, err := s.queries.GetUsuario(r.Context(), id)
 	if err != nil {
 		dbError(w, err, "Usuario no encontrado")
@@ -795,12 +696,7 @@ func (s *Server) obtenerUsuario(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toUsuarioDTO(u))
 }
 
-func (s *Server) actualizarUsuario(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathID(r, "id")
-	if !ok {
-		writeError(w, http.StatusBadRequest, "ID de usuario inválido")
-		return
-	}
+func (s *Server) actualizarUsuario(w http.ResponseWriter, r *http.Request, id int32) {
 	var dto UsuarioDTO
 	if !decodeJSON(w, r, &dto) {
 		return
@@ -830,12 +726,7 @@ func (s *Server) actualizarUsuario(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toUsuarioDTO(u))
 }
 
-func (s *Server) eliminarUsuario(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathID(r, "id")
-	if !ok {
-		writeError(w, http.StatusBadRequest, "ID de usuario inválido")
-		return
-	}
+func (s *Server) eliminarUsuario(w http.ResponseWriter, r *http.Request, id int32) {
 	if err := s.queries.DeleteUsuario(r.Context(), id); err != nil {
 		dbError(w, err, "")
 		return
