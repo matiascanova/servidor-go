@@ -170,7 +170,7 @@ func main() {
 func (s *Server) routes() http.Handler {
 	mux := http.NewServeMux()
 
-	// ARCHIVOS ESTÁTICOS
+	// ESTATICOS
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 
 	// VISTAS HTML (TEMPL)
@@ -178,9 +178,10 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /materias/calificar", withQueryID(s.calificarHandler))
 	mux.HandleFunc("GET /materias/resenas", withQueryID(s.resenasHandler))
 
-	// ACCIÓN DE FORMULARIO (POST)
+	// ACCIÓN DE FORMULARIO (POST) 
 	mux.HandleFunc("POST /votos", s.crearVotoForm)
-
+    // recordatorio mental, el borrar de form usa un post para borrar por lo que se saco
+    //
 	return mux
 }
 
