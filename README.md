@@ -5,7 +5,7 @@
 - Go 1.22 o superior
 - Docker con Docker Compose
 - make
-- [templ](https://templ.guide) y [sqlc](https://sqlc.dev):
+- [templ](https://templ.guide) y [sqlc](https://sqlc.dev)
 - [Hurl](https://hurl.dev) (solo para las pruebas)
 
 ## Comandos
