@@ -1,0 +1,33 @@
+package views
+
+import (
+	"fmt"
+	"tp2_entrega/db"
+)
+
+// EntityList renderiza la grilla de materias con sus respectivas acciones
+templ EntityList(materias []db.Materia) {
+	<section class="grid-section">
+		<h2>Plan de Materias</h2>
+		<div id="entities-container" class="career-grid">
+			for _, m := range materias {
+				<article class="entity-card">
+					<div class="subject-title">{ m.Nombre }</div>
+					if m.Descripcion.Valid && m.Descripcion.String != "" {
+						<p class="subject-desc">{ m.Descripcion.String }</p>
+					}
+					<div class="card-actions">
+						<!-- Camino 1: Agregar reseña a esta materia específica -->
+						<a href={ templ.SafeURL(fmt.Sprintf("/materias/calificar?id=%d", m.Idmateria)) } class="btn-action btn-add">
+							Agregar reseña
+						</a>
+						<!-- Camino 2: Ver las reseñas asociadas a esta materia específica -->
+						<a href={ templ.SafeURL(fmt.Sprintf("/materias/resenas?id=%d", m.Idmateria)) } class="btn-action btn-view">
+							Ver reseñas
+						</a>
+					</div>
+				</article>
+			}
+		</div>
+	</section>
+}

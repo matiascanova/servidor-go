@@ -1,0 +1,36 @@
+services:
+  database:
+    image: postgres:17-alpine
+    container_name: postgres-db
+    environment:
+      - POSTGRES_DB=apirest
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data 
+      - ./sql/schema/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./sql/schema/seed.sql:/docker-entrypoint-initdb.d/02-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d apirest"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: go-api
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@database:5432/apirest?sslmode=disable
+    depends_on:
+      database:
+        condition: service_healthy
+
+volumes:
+  pgdata:

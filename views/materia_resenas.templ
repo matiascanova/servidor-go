@@ -1,0 +1,32 @@
+package views
+
+import "tp2_entrega/db"
+
+templ MateriaResenas(materia db.Materia, votos []db.Voto) {
+	@Layout("Reseñas de " + materia.Nombre) {
+		<section class="resenas-section">
+			<h2>Reseñas de { materia.Nombre }</h2>
+			if len(votos) == 0 {
+				<p class="no-data">Aún no hay reseñas registradas para esta materia.</p>
+			} else {
+				<div class="votos-list">
+					for _, v := range votos {
+						<article class="voto-card">
+							<div class="scores-grid">
+								<p><strong>Dificultad:</strong> { scoreLabel(v.PuntuacionDif) }</p>
+								<p><strong>Relevancia:</strong> { scoreLabel(v.PuntuacionRel) }</p>
+								<p><strong>Gusto:</strong> { scoreLabel(v.PuntuacionGusto) }</p>
+							</div>
+							if v.Descripcion.Valid && v.Descripcion.String != "" {
+								<p class="comentario">"{ v.Descripcion.String }"</p>
+							}
+						</article>
+					}
+				</div>
+			}
+			<div class="back-link-container">
+				<a href="/" class="btn-back">← Volver al Plan de Materias</a>
+			</div>
+		</section>
+	}
+}

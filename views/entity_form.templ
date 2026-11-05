@@ -1,0 +1,44 @@
+package views
+
+import (
+	"fmt"
+	"tp2_entrega/db"
+)
+
+templ scoreInput(id string, label string, value string) {
+	<div class="form-group">
+		<label for={ id }>{ label }</label>
+		<input type="number" id={ id } name={ id } min="1" max="5" value={ value } required/>
+	</div>
+}
+
+templ EntityForm(materia db.Materia, voto *db.Voto) {
+	@Layout(formTitle(materia, voto)) {
+		<section class="form-section">
+			if voto != nil {
+				<h2>Editar tu reseña para { materia.Nombre }</h2>
+			} else {
+				<h2>Agregar reseña para { materia.Nombre }</h2>
+			}
+			<form action="/votos" method="POST">
+				<input type="hidden" name="idmateria" value={ fmt.Sprintf("%d", materia.Idmateria) }/>
+				<div class="ratings-row">
+					@scoreInput("puntuacion_dif", "Dificultad (1-5):", scoreDif(voto))
+					@scoreInput("puntuacion_rel", "Relevancia (1-5):", scoreRel(voto))
+					@scoreInput("puntuacion_gusto", "Gusto Personal (1-5):", scoreGusto(voto))
+				</div>
+				<div class="form-group">
+					<label for="descripcion">Comentario / Opinión:</label>
+					<textarea id="descripcion" name="descripcion" rows="3" maxlength="140" placeholder="Escribe tu opinión sobre la cursada...">{ comentarioVoto(voto) }</textarea>
+				</div>
+				<button type="submit" class="btn-submit">
+					if voto != nil {
+						Guardar Cambios
+					} else {
+						Guardar Reseña
+					}
+				</button>
+			</form>
+		</section>
+	}
+}
