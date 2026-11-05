@@ -6,10 +6,6 @@
 - Docker con Docker Compose
 - make
 - [templ](https://templ.guide) y [sqlc](https://sqlc.dev):
-  ```bash
-  go install github.com/a-h/templ/cmd/templ@v0.2.778
-  go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
-  ```
 - [Hurl](https://hurl.dev) (solo para las pruebas)
 
 ## Comandos
