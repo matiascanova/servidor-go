@@ -2,17 +2,23 @@
 
 Los alumnos de Exactas (por ahora, Ingeniería en Sistemas) puntúan las materias de 1 a 5 en **dificultad**, **relevancia** y **gusto personal**, y dejan una breve opinión. La idea central es que hacer una reseña sea simple, para juntar más datos que con las encuestas actuales. Más adelante habrá login (con modo invitado solo para ver puntajes) y promedios por materia.
 
+> **Estado de este branch:** solo páginas HTML. La API REST en JSON no está resuelta acá (ver sección 3).
+
 ---
 
 ## 1. Base de datos (PostgreSQL)
 
-Tres tablas:
+Esquema en `sql/schema/schema.sql` y datos de prueba en `sql/schema/seed.sql`. Tres tablas:
 
 - **usuario**: id, nombre y apellido.
-- **materia**: id, nombre, cuatrimestre del plan y una descripción corta.
-- **voto**: une usuario y materia (clave primaria compuesta y dos claves foráneas), con las tres puntuaciones, una descripción de hasta 140 caracteres y la fecha.
+- **materia**: id, nombre, cuatrimestre del plan y una descripción corta opcional.
+- **voto**: une usuario y materia (clave primaria compuesta y dos claves foráneas con borrado en cascada), con las tres puntuaciones, una descripción de hasta 140 caracteres y la fecha (por defecto, la del día).
 
-Restricciones del `voto`: cada puntuación debe estar entre 1 y 5 o ser NULL, y **al menos una** de las tres debe estar cargada. Así no se guardan votos vacíos, pero se permite puntuar solo lo que se quiere.
+Restricciones del `voto`: cada puntuación debe estar entre 1 y 5 o ser NULL, y **al menos una** de las tres debe estar cargada. Así no se guardan votos vacíos, pero la base permite puntuar solo lo que se quiere.
+
+**Datos iniciales:** 2 usuarios (el id 1 es el usuario demo) y 37 materias del plan, en 10 cuatrimestres.
+
+**Consultas:** se escriben en `queries.sql` y sqlc genera el paquete `db`. El voto se guarda con un *upsert*: si ya existe, se reemplaza y se actualiza la fecha. Por eso votar dos veces no da error. Hay consultas de CRUD para usuarios, materias y votos, pero esta versión solo usa las de listar y obtener materias, obtener un voto, listar votos por materia y el upsert.
 
 **Rendimiento:** la tabla más usada será `voto`. Si el cálculo de promedios en cada consulta se volviera pesado, se podría guardar el promedio en `materia` y actualizarlo con un *stored procedure* (por ejemplo una vez por día), a cambio de algo de consistencia. Por ahora está en evaluación.
 
@@ -31,7 +37,7 @@ Restricciones del `voto`: cada puntuación debe estar entre 1 y 5 o ser NULL, y 
 | PostgreSQL + `pgx` | base de datos |
 | sqlc | genera el código Go de acceso a datos (paquete `db`) desde `queries.sql` |
 | Docker Compose | PostgreSQL (y opcionalmente la app) en contenedores |
-| Hurl | pruebas automáticas de la API y de las páginas |
+| Hurl | pruebas automáticas de las páginas y del formulario |
 
 ### Páginas (HTML)
 
@@ -40,45 +46,30 @@ Restricciones del `voto`: cada puntuación debe estar entre 1 y 5 o ser NULL, y 
 | `GET /` | lista de materias |
 | `GET /materias/calificar?id=N` | formulario de reseña (precargado si ya votaste) |
 | `GET /materias/resenas?id=N` | reseñas de una materia |
-| `POST /votos` | guarda el voto y redirige a `/` (patrón Post/Redirect/Get) |
+| `POST /votos` | guarda el voto y redirige a `/materias/resenas?id=N` (patrón Post/Redirect/Get) |
+| `GET /static/...` | archivos estáticos |
+
+Un `id` inválido responde 400 y una materia inexistente, 404.
 
 Las vistas están en `views/`: `layout.templ` (estructura base), `entity_list.templ` (grilla de materias), `entity_form.templ` (formulario) y `materia_resenas.templ` (reseñas).
 
-Como todavía no hay login, los votos del formulario se asignan al **usuario demo (id 1)**, que se crea al iniciar la app si no existe.
+### Usuario demo y formulario
+
+Como todavía no hay login, los votos se asignan al **usuario demo (id 1)**, que se crea con `seed.sql` al iniciar la base.
+
+El formulario exige las tres puntuaciones (si falta alguna o no es un número, responde 400). La descripción es opcional. Se valida en Go (puntuaciones de 1 a 5, descripción de hasta 140 caracteres) y la base repite las restricciones como última defensa.
+
+### Configuración
+
+- `DATABASE_URL`: conexión a la base. Por defecto, `postgres://postgres:postgres@localhost:5432/apirest?sslmode=disable`.
+- Al iniciar, la app reintenta conectarse a la base hasta 15 veces, cada 2 segundos.
+- El servidor escucha en el puerto 8080.
 
 ---
 
-## 3. API REST (JSON)
+## 3. API REST (JSON): pendiente
 
-Además de las páginas, la app expone un CRUD en JSON. Los errores devuelven `{"error": "mensaje"}`.
-
-**Usuarios** (`/usuarios`) y **Materias** (`/materias`)
-
-| Método | Ruta | Respuestas |
-|---|---|---|
-| GET | `/usuarios` | 200 |
-| POST | `/usuarios` | 201, 400, 409 |
-| GET | `/usuarios/{id}` | 200, 400, 404 |
-| PUT | `/usuarios/{id}` | 200, 400, 404 |
-| DELETE | `/usuarios/{id}` | 204 |
-
-Las materias tienen las mismas rutas y códigos bajo `/materias`.
-
-**Votos**
-
-| Método | Ruta | Respuestas |
-|---|---|---|
-| POST | `/votos` | 201, 400, 409 |
-| GET | `/votos?idmateria=N` | 200, 400 |
-| GET | `/votos/{idusuario}/{idmateria}` | 200, 400, 404 |
-| PUT | `/votos/{idusuario}/{idmateria}` | 200, 400, 404 |
-| DELETE | `/votos/{idusuario}/{idmateria}` | 204 |
-
-- `POST /votos` atiende el formulario HTML o JSON, según el `Content-Type`.
-- No existe un listado de *todos* los votos: solo por materia.
-- Puntuaciones fuera de 1 a 5, o un voto sin ninguna puntuación, se rechazan con 400.
-- Un `409` indica un recurso duplicado (por ejemplo, votar dos veces con `POST`; para modificar se usa `PUT`).
-- `DELETE` es idempotente: responde 204 exista o no el recurso.
+La API en JSON (`/usuarios`, `/materias`, `/votos` con `PUT`, `DELETE` y listados) **no está resuelta en este branch**: `main.go` solo registra las rutas HTML. Las consultas del CRUD ya están generadas en `queries.sql` para cuando se retome.
 
 ---
 
@@ -103,10 +94,11 @@ También hay un subcomponente `scoreInput` en `entity_form.templ`, que evita rep
 
 | Helper | Por qué |
 |---|---|
-| DTOs (`MateriaDTO`, `VotoDTO`) y conversiones (`toVotoDTO`, `intPtr`...) | el JSON sale limpio (`"puntuacion_rel": null`) y no como `{"Int32": 3, "Valid": true}` |
-| `writeJSON`, `writeError`, `decodeJSON` | respuestas y errores con el mismo formato, sin repetir código en cada handler |
-| `classifyDBError` | traduce errores de Postgres a códigos HTTP (duplicado → 409, FK o CHECK → 400) sin mostrar el error crudo al cliente |
-| `pathID`, `queryID` | leen y validan los IDs de la ruta o de la URL |
+| `VotoDTO` y `validate()` | reciben los datos del formulario y los validan antes de tocar la base |
+| `nullInt32`, `nullString` | convierten valores de Go a los tipos NULL de la base |
+| `classifyDBError` | traduce errores de Postgres a códigos HTTP con un mensaje legible (duplicado → 409, FK o CHECK → 400, no encontrado → 404, otro → 500) sin mostrar el error crudo al usuario |
+| `parseID`, `withQueryID` | leen y validan el `id` de la URL |
+| `formInt` | lee un campo numérico del formulario |
 
 ---
 
@@ -120,11 +112,16 @@ make test   # corre las pruebas (con la app ya corriendo, en otra terminal)
 make down   # detiene la base de datos y borra sus datos
 ```
 
+`make` solo levanta la base en Docker; la app corre localmente. El servicio `api` de `docker-compose.yml` permite correrla también en un contenedor. Los scripts de `schema.sql` y `seed.sql` solo se ejecutan cuando la base se crea de cero, por eso `make down` borra el volumen.
+
 ### Pruebas (`requests.hurl`)
 
 Hurl ejecuta las pruebas en orden y **valida automáticamente** los códigos de estado y el contenido de las respuestas. Cubren:
 
-1. **Usuarios y materias:** CRUD completo, verificando con un `GET` que los `PUT` realmente se guardaron.
-2. **Páginas HTML:** `GET /`, formulario vacío y precargado, reseñas, y el `POST` del formulario con su redirección.
-3. **Votos (JSON):** CRUD, listado por materia y valores `null`.
-4. **Casos de error:** IDs inválidos, JSON inválido, recursos inexistentes (404), duplicados (409) y puntuaciones fuera de rango (400).
+1. **Páginas HTML:** `GET /`, ruta inexistente (404), formulario vacío y precargado tras votar, y reseñas.
+2. **Formulario:** el `POST` válido con su redirección (303) y la reseña publicada.
+3. **Casos de error:** IDs inválidos (400), materias inexistentes (404), puntuaciones fuera de rango (400) y valores no numéricos (400).
+
+Las pruebas asumen una base recién creada (la materia 1 sin votos de otros usuarios), así que conviene correr `make down` antes de repetirlas.
+
+---
