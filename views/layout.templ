@@ -1,6 +1,5 @@
 package views
 
-// Layout define la estructura contenedora HTML base para la aplicación
 templ Layout(title string) {
 	<!DOCTYPE html>
 	<html lang="es">
@@ -9,6 +8,7 @@ templ Layout(title string) {
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<title>{ title }</title>
 			<link rel="stylesheet" href="/static/styles.css"/>
+			<script src="https://unpkg.com/htmx.org@1.9.10"></script>
 		</head>
 		<body>
 			<header class="navbar">

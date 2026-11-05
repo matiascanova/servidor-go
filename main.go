@@ -421,16 +421,12 @@ func (s *Server) guardarVoto(ctx context.Context, d VotoDTO) error {
 	return err
 }
 
-func (s *Server) crearVotoHandler(w http.ResponseWriter, r *http.Request) {
-	s.crearVotoForm(w, r)
-}
-
 func formInt(r *http.Request, key string) (int32, error) {
 	n, err := strconv.ParseInt(strings.TrimSpace(r.FormValue(key)), 10, 32)
 	return int32(n), err
 }
 
-func (s *Server) crearVotoForm(w http.ResponseWriter, r *http.Request) {
+func (s *Server) crearVotoHandler(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Formulario inválido", http.StatusBadRequest)
 		return
@@ -465,7 +461,29 @@ func (s *Server) crearVotoForm(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, msg, status)
 		return
 	}
-    http.Redirect(w, r, "/", http.StatusSeeOther)
+
+	// 1. Buscamos la materia
+	materia, err := s.queries.GetMateria(r.Context(), idMateria)
+	if err != nil {
+		http.Error(w, "Error al consultar materia", http.StatusInternalServerError)
+		return
+	}
+
+	// 2. Buscamos el voto recién guardado
+	voto, err := s.queries.GetVoto(r.Context(), db.GetVotoParams{
+		Idusuario: usuarioDemoID,
+		Idmateria: idMateria,
+	})
+	var votoPtr *db.Voto
+	if err == nil {
+		votoPtr = &voto
+	}
+
+	// 3. Respondemos ÚNICAMENTE con el fragmento del formulario (evita el error de duplicar el layout)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := views.FormContent(materia, votoPtr).Render(r.Context(), w); err != nil {
+		log.Printf("render FormContent: %v", err)
+	}
 }
 
 func (s *Server) eliminarVotoForm(w http.ResponseWriter, r *http.Request) {
@@ -488,7 +506,16 @@ func (s *Server) eliminarVotoForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	materia, err := s.queries.GetMateria(r.Context(), idMateria)
+	if err != nil {
+		http.Error(w, "Error al consultar materia", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := views.FormContent(materia, nil).Render(r.Context(), w); err != nil {
+		log.Printf("render FormContent: %v", err)
+	}
 }
 
 func (s *Server) listarVotos(w http.ResponseWriter, r *http.Request) {

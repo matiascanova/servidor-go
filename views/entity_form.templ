@@ -12,38 +12,48 @@ templ scoreInput(id string, label string, value string) {
 	</div>
 }
 
-templ EntityForm(materia db.Materia, voto *db.Voto) {
-	@Layout(formTitle(materia, voto)) {
-		<section class="form-section">
-			if voto != nil {
-				<h2>Editar tu reseña para { materia.Nombre }</h2>
-			} else {
-				<h2>Agregar reseña para { materia.Nombre }</h2>
-			}
-			<form action="/votos" method="POST">
-				<input type="hidden" name="idmateria" value={ fmt.Sprintf("%d", materia.Idmateria) }/>
-				<div class="ratings-row">
-					@scoreInput("puntuacion_dif", "Dificultad (1-5):", scoreDif(voto))
-					@scoreInput("puntuacion_rel", "Relevancia (1-5):", scoreRel(voto))
-					@scoreInput("puntuacion_gusto", "Gusto Personal (1-5):", scoreGusto(voto))
-				</div>
-				<div class="form-group">
-					<label for="descripcion">Comentario / Opinión:</label>
-					<textarea id="descripcion" name="descripcion" rows="3" maxlength="140" placeholder="Escribe tu opinión sobre la cursada...">{ comentarioVoto(voto) }</textarea>
-				</div>
-				<button type="submit" class="btn-submit">
-					if voto != nil {
-						Guardar Cambios
-					} else {
-						Guardar Reseña
-					}
-				</button>
+// FormContent renderiza ÚNICAMENTE el fragmento del formulario (para las respuestas de HTMX)
+templ FormContent(materia db.Materia, voto *db.Voto) {
+	<section id="form-container" class="form-section">
+		if voto != nil {
+			<h2>Editar tu reseña para { materia.Nombre }</h2>
+		} else {
+			<h2>Agregar reseña para { materia.Nombre }</h2>
+		}
+		<form hx-post="/votos" hx-target="#form-container" hx-swap="outerHTML">
+			<input type="hidden" name="idmateria" value={ fmt.Sprintf("%d", materia.Idmateria) }/>
+			<div class="ratings-row">
+				@scoreInput("puntuacion_dif", "Dificultad (1-5):", scoreDif(voto))
+				@scoreInput("puntuacion_rel", "Relevancia (1-5):", scoreRel(voto))
+				@scoreInput("puntuacion_gusto", "Gusto Personal (1-5):", scoreGusto(voto))
+			</div>
+			<div class="form-group">
+				<label for="descripcion">Comentario / Opinión:</label>
+				<textarea id="descripcion" name="descripcion" rows="3" maxlength="140" placeholder="Escribe tu opinión sobre la cursada...">{ comentarioVoto(voto) }</textarea>
+			</div>
+			<button type="submit" class="btn-submit">
 				if voto != nil {
-					<button type="submit" formaction="/votos/eliminar" formnovalidate class="btn-delete" onclick="return confirm('¿Eliminar tu reseña?')">
+					Guardar Cambios
+				} else {
+					Guardar Reseña
+				}
+			</button>
+			if voto != nil {
+					<button 
+						type="button"
+						hx-post="/votos/eliminar" 
+						hx-target="#form-container" 
+						hx-swap="outerHTML" 
+						hx-confirm="¿Estás seguro de eliminar tu reseña?"
+						class="btn-delete">
 						Eliminar reseña
 					</button>
 				}
-			</form>
-		</section>
+		</form>
+	</section>
+}
+templ EntityForm(materia db.Materia, voto *db.Voto) {
+	@Layout(formTitle(materia, voto)) {
+		@FormContent(materia, voto)
 	}
 }
