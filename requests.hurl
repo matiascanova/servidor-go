@@ -54,7 +54,7 @@ HTTP 200
 [Asserts]
 body contains "Muy buena cursada (form)"
 body contains "4/5"
-xpath "count(//article[@class='voto-card'])" == 1
+xpath "count(//article[@class='voto-card'])" == 2
 
 # [VISTAS HTML] Modo edición precargado en formulario tras votar
 GET {{base_url}}/materias/calificar?id=1
@@ -68,7 +68,7 @@ xpath "string(//textarea[@name='descripcion'])" == "Muy buena cursada (form)"
 # [FORMULARIOS] Rechazo de puntuación fuera de rango 1-5 (400)
 POST {{base_url}}/votos
 [FormParams]
-idmateria: 1
+idmateria: 5
 puntuacion_dif: 9
 puntuacion_rel: 5
 puntuacion_gusto: 3
@@ -78,8 +78,28 @@ HTTP 400
 # [FORMULARIOS] Rechazo de valores no numéricos en campos de puntuación (400)
 POST {{base_url}}/votos
 [FormParams]
-idmateria: 1
+idmateria: 5
 puntuacion_dif: abc
 puntuacion_rel: 5
 puntuacion_gusto: 3
+HTTP 400
+
+# [FORMULARIOS] Aceptación de voto dejando algunas categorías vacías (303)
+POST {{base_url}}/votos
+[FormParams]
+idmateria: 5
+puntuacion_dif: 5
+descripcion: Reseña con solo un puntaje
+HTTP 303
+[Asserts]
+header "Location" == "/materias/resenas?id=5"
+
+# [FORMULARIOS] Rechazo del formulario si todas las puntuaciones están vacías (400)
+POST {{base_url}}/votos
+[FormParams]
+idmateria: 5
+puntuacion_dif: ""
+puntuacion_rel: ""
+puntuacion_gusto: ""
+descripcion: Reseña inválida sin puntajes
 HTTP 400

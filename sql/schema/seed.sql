@@ -65,3 +65,9 @@ INSERT INTO materia (idmateria, nombre, cuatrimestre, descripcion) VALUES
   (36, 'Formulación y Evaluación de Proyectos TICs', 10, 'Materia del 10mo cuatrimestre'),
   (37, 'Ética y Legislación de la Práctica Profesional', 10, 'Materia del 10mo cuatrimestre')
 ON CONFLICT (idmateria) DO NOTHING;
+
+-- 3. reseña misteriosa
+INSERT INTO voto (idUsuario, idMateria, puntuacion_dif, puntuacion_rel, puntuacion_gusto, descripcion) VALUES
+  (2,3,2,4,5,'Gran materia la recursaria para hacerla de vuelta'),
+  (2,1,5,5,5,'Hola soy una reseña de seed.sql')
+ON CONFLICT (idusuario,idMateria) DO NOTHING;

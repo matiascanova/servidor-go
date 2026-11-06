@@ -278,6 +278,20 @@ func formInt(r *http.Request, key string) (int32, error) {
 	return int32(n), err
 }
 
+// para valores que pueden ser nulos (ya que es opcional que los 3 campos tengan un valor)
+func formOptionalInt(r *http.Request, key string) (*int32, error) {
+	val := strings.TrimSpace(r.FormValue(key))
+	if val == "" {
+		return nil, nil
+	}
+	n, err := strconv.ParseInt(val, 10, 32)
+	if err != nil {
+		return nil, err
+	}
+	n32 := int32(n)
+	return &n32, nil
+}
+
 func (s *Server) crearVotoForm(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Formulario inválido", http.StatusBadRequest)
@@ -285,9 +299,10 @@ func (s *Server) crearVotoForm(w http.ResponseWriter, r *http.Request) {
 	}
 
 	idMateria, err1 := formInt(r, "idmateria")
-	dif, err2 := formInt(r, "puntuacion_dif")
-	rel, err3 := formInt(r, "puntuacion_rel")
-	gusto, err4 := formInt(r, "puntuacion_gusto")
+	dif, err2 := formOptionalInt(r, "puntuacion_dif")
+	rel, err3 := formOptionalInt(r, "puntuacion_rel")
+	gusto, err4 := formOptionalInt(r, "puntuacion_gusto")
+    
 	if err1 != nil || err2 != nil || err3 != nil || err4 != nil {
 		http.Error(w, "Formulario inválido: valores numéricos incorrectos", http.StatusBadRequest)
 		return
@@ -296,9 +311,9 @@ func (s *Server) crearVotoForm(w http.ResponseWriter, r *http.Request) {
 	dto := VotoDTO{
 		IDUsuario:       usuarioDemoID,
 		IDMateria:       idMateria,
-		PuntuacionDif:   &dif,
-		PuntuacionRel:   &rel,
-		PuntuacionGusto: &gusto,
+		PuntuacionDif:   dif,
+		PuntuacionRel:   rel,
+		PuntuacionGusto: gusto,
 	}
 	if desc := strings.TrimSpace(r.FormValue("descripcion")); desc != "" {
 		dto.Descripcion = &desc
