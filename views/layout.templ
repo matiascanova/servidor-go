@@ -1,0 +1,31 @@
+package views
+templ Layout(title string) {
+	<!DOCTYPE html>
+	<html lang="es">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>{ title }</title>
+			<link rel="stylesheet" href="/static/styles.css"/>
+			<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+		</head>
+		<body>
+			<header class="navbar">
+				<div class="header-container">
+					<h1>Foro de Alumnos - Exactas UNICEN</h1>
+					<p class="description">Plan de Estudios: Ingeniería en Sistemas. Consultá o cargá reseñas de materias.</p>
+					<nav class="main-nav">
+						<a href="/" class="nav-tab">Materias</a>
+						<a href="/mis-resenas" class="nav-tab">Mis reseñas</a>
+					</nav>
+				</div>
+			</header>
+			<main class="main-content">
+				{ children... }
+			</main>
+			<footer class="footer-container">
+				<p>© Programación Web - UNICEN</p>
+			</footer>
+		</body>
+	</html>
+}

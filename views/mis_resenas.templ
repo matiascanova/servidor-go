@@ -1,0 +1,54 @@
+package views
+
+import (
+	"fmt"
+	"tp2_entrega/db"
+)
+
+templ MisResenas(votos []db.ListarVotosPorUsuarioRow) {
+	@Layout("Mis reseñas") {
+		<section class="resenas-section mis-resenas">
+			<h2>Mis reseñas</h2>
+			if len(votos) == 0 {
+				<p class="no-data">Todavía no hiciste ninguna reseña.</p>
+			} else {
+				<div class="mis-resenas-list">
+					for _, v := range votos {
+						<article class="mi-resena">
+							<h3 class="mi-resena-materia">{ v.MateriaNombre }</h3>
+							<div class="mi-resena-scores">
+								<p><strong>Dificultad:</strong> { scoreLabel(v.PuntuacionDif) }</p>
+								<p><strong>Relevancia:</strong> { scoreLabel(v.PuntuacionRel) }</p>
+								<p><strong>Gusto:</strong> { scoreLabel(v.PuntuacionGusto) }</p>
+							</div>
+							if v.Descripcion.Valid && v.Descripcion.String != "" {
+								<p class="mi-resena-comentario">"{ v.Descripcion.String }"</p>
+							}
+							<div class="mi-resena-acciones">
+								<a
+									href={ templ.SafeURL(fmt.Sprintf("/materias/calificar?id=%d", v.Idmateria)) }
+									class="mi-btn mi-btn-editar"
+								>
+									Editar
+								</a>
+								<button
+									type="button"
+									class="mi-btn mi-btn-borrar"
+									hx-delete={ fmt.Sprintf("/mis-resenas/%d", v.Idmateria) }
+									hx-target="closest .mi-resena"
+									hx-swap="outerHTML"
+									hx-confirm="¿Estás seguro de que querés borrar esta reseña?"
+								>
+									Borrar
+								</button>
+							</div>
+						</article>
+					}
+				</div>
+			}
+			<div class="back-link-container">
+				<a href="/" class="btn-back">← Volver al Plan de Materias</a>
+			</div>
+		</section>
+	}
+}
