@@ -178,7 +178,8 @@ func (s *Server) routes() http.Handler {
 	// ESTATICOS
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 
-	// PÚBLICAS (modo invitado): ver materias y reseñas
+	// PÚBLICAS (modo invitado): ver materias y reseñas. La página de una materia
+	// muestra el formulario arriba (solo con sesión) y las reseñas abajo.
 	mux.HandleFunc("GET /{$}", s.homeHandler)
 	mux.HandleFunc("GET /materias/resenas", withQueryID(s.resenasHandler))
 
@@ -190,7 +191,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /logout", s.logoutHandler)
 
 	// PROTEGIDAS: requieren sesión. El usuario sale siempre de la sesión.
-	mux.HandleFunc("GET /materias/calificar", s.requireUser(withQueryID(s.calificarHandler)))
+	mux.HandleFunc("GET /materias/calificar", s.requireUser(withQueryID(s.calificarRedirectHandler)))
 	mux.HandleFunc("GET /mis-resenas", s.requireUser(s.misResenasHandler))
 	mux.HandleFunc("POST /votos", s.requireUser(s.crearVotoForm))
 	mux.HandleFunc("DELETE /votos/eliminar", s.requireUser(s.eliminarVotoHandler))
@@ -219,37 +220,10 @@ func (s *Server) homeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) calificarHandler(w http.ResponseWriter, r *http.Request, idMateria int32) {
-	materia, err := s.queries.GetMateria(r.Context(), idMateria)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			http.Error(w, "Materia no encontrada", http.StatusNotFound)
-		} else {
-			log.Printf("GetMateria: %v", err)
-			http.Error(w, "Error interno", http.StatusInternalServerError)
-		}
-		return
-	}
-
-	var votoPtr *db.Voto
-	voto, err := s.queries.GetVoto(r.Context(), db.GetVotoParams{
-		Idusuario: userID(r),
-		Idmateria: idMateria,
-	})
-	switch {
-	case err == nil:
-		votoPtr = &voto
-	case errors.Is(err, sql.ErrNoRows):
-	default:
-		log.Printf("GetVoto: %v", err)
-		http.Error(w, "Error interno", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := views.EntityForm(materia, votoPtr).Render(r.Context(), w); err != nil {
-		log.Printf("render EntityForm: %v", err)
-	}
+// /materias/calificar quedó como atajo: el formulario ahora vive en la página de la
+// materia, arriba de las reseñas. Pide sesión (requireUser) y redirige allí.
+func (s *Server) calificarRedirectHandler(w http.ResponseWriter, r *http.Request, idMateria int32) {
+	http.Redirect(w, r, fmt.Sprintf("/materias/resenas?id=%d#form-container", idMateria), http.StatusSeeOther)
 }
 
 func (s *Server) misResenasHandler(w http.ResponseWriter, r *http.Request) {
@@ -266,6 +240,8 @@ func (s *Server) misResenasHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Página de una materia: formulario arriba (solo si hay sesión, precargado con tu
+// reseña si ya votaste) y reseñas de todos los usuarios abajo.
 func (s *Server) resenasHandler(w http.ResponseWriter, r *http.Request, id int32) {
 	materia, err := s.queries.GetMateria(r.Context(), id)
 	if err != nil {
@@ -285,8 +261,25 @@ func (s *Server) resenasHandler(w http.ResponseWriter, r *http.Request, id int32
 		return
 	}
 
+	var votoPtr *db.Voto
+	if u, ok := views.UsuarioDe(r.Context()); ok {
+		voto, err := s.queries.GetVoto(r.Context(), db.GetVotoParams{
+			Idusuario: u.ID,
+			Idmateria: id,
+		})
+		switch {
+		case err == nil:
+			votoPtr = &voto
+		case errors.Is(err, sql.ErrNoRows):
+		default:
+			log.Printf("GetVoto: %v", err)
+			http.Error(w, "Error interno", http.StatusInternalServerError)
+			return
+		}
+	}
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := views.MateriaResenas(materia, votos).Render(r.Context(), w); err != nil {
+	if err := views.MateriaResenas(materia, votoPtr, votos).Render(r.Context(), w); err != nil {
 		log.Printf("render MateriaResenas: %v", err)
 	}
 }
@@ -363,17 +356,20 @@ func (s *Server) crearVotoForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	materia, _ := s.queries.GetMateria(r.Context(), dto.IDMateria)
-	votoActualizado, _ := s.queries.GetVoto(r.Context(), db.GetVotoParams{
+	votoActualizado, err := s.queries.GetVoto(r.Context(), db.GetVotoParams{
 		Idusuario: uid,
 		Idmateria: dto.IDMateria,
 	})
+	if err != nil {
+		status, msg := classifyDBError(err)
+		http.Error(w, msg, status)
+		return
+	}
 
-	// RE-RENDERIZADO (SE DICE ASI?)
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	views.FormContent(materia, &votoActualizado).Render(r.Context(), w)
-
+	// Respuesta HTMX: la lista de reseñas actualizada (más el formulario por OOB).
+	s.renderResenasActualizadas(w, r, dto.IDMateria, &votoActualizado)
 }
+
 func (s *Server) eliminarVotoHandler(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Solicitud inválida", http.StatusBadRequest)
@@ -396,11 +392,10 @@ func (s *Server) eliminarVotoHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	materia, _ := s.queries.GetMateria(r.Context(), idMateria)
-
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	views.FormContent(materia, nil).Render(r.Context(), w)
+	// Respuesta HTMX: la lista sin la reseña borrada (más el formulario vacío por OOB).
+	s.renderResenasActualizadas(w, r, idMateria, nil)
 }
+
 func (s *Server) borrarMiResenaHandler(w http.ResponseWriter, r *http.Request) {
 	idMateria, ok := parseID(r.PathValue("idmateria"))
 	if !ok {
@@ -419,4 +414,28 @@ func (s *Server) borrarMiResenaHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+// renderResenasActualizadas vuelve a consultar TODAS las reseñas de la materia y
+// responde con el fragmento de la lista (que HTMX coloca en #resenas-container) más
+// el formulario actualizado marcado hx-swap-oob. "voto" es la reseña del usuario
+// después del cambio (nil si ya no tiene).
+func (s *Server) renderResenasActualizadas(w http.ResponseWriter, r *http.Request, idMateria int32, voto *db.Voto) {
+	materia, err := s.queries.GetMateria(r.Context(), idMateria)
+	if err != nil {
+		status, msg := classifyDBError(err)
+		http.Error(w, msg, status)
+		return
+	}
+	votos, err := s.queries.ListarVotosPorMateria(r.Context(), idMateria)
+	if err != nil {
+		status, msg := classifyDBError(err)
+		http.Error(w, msg, status)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := views.ResenasActualizadas(materia, voto, votos).Render(r.Context(), w); err != nil {
+		log.Printf("render ResenasActualizadas: %v", err)
+	}
 }

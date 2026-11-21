@@ -20,13 +20,9 @@ templ EntityList(materias []db.Materia) {
 							<p class="subject-desc">{ m.Descripcion.String }</p>
 						}
 						<div class="card-actions">
-							<!-- Camino 1: Agregar reseña a esta materia específica -->
-							<a href={ templ.SafeURL(fmt.Sprintf("/materias/calificar?id=%d", m.Idmateria)) } class="btn-action btn-add">
-								Agregar reseña
-							</a>
-							<!-- Camino 2: Ver las reseñas asociadas a esta materia específica -->
+							<!-- Un solo camino: la página de la materia tiene el formulario arriba y las reseñas abajo -->
 							<a href={ templ.SafeURL(fmt.Sprintf("/materias/resenas?id=%d", m.Idmateria)) } class="btn-action btn-view">
-								Ver reseñas
+								Ver y agregar reseñas
 							</a>
 						</div>
 					</article>

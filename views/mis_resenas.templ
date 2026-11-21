@@ -26,7 +26,7 @@ templ MisResenas(votos []db.ListarVotosPorUsuarioRow) {
 							}
 							<div class="mi-resena-acciones">
 								<a
-									href={ templ.SafeURL(fmt.Sprintf("/materias/calificar?id=%d", v.Idmateria)) }
+									href={ templ.SafeURL(fmt.Sprintf("/materias/resenas?id=%d#form-container", v.Idmateria)) }
 									class="mi-btn mi-btn-editar"
 								>
 									Editar

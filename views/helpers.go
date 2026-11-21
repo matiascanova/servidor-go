@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/url"
 	"strconv"
 
 	"tp2_entrega/db"
@@ -45,18 +46,17 @@ func comentarioVoto(v *db.Voto) string {
 	return v.Descripcion.String
 }
 
-func formTitle(m db.Materia, v *db.Voto) string {
-	if v != nil {
-		return "Editar reseña de " + m.Nombre
-	}
-	return "Calificar " + m.Nombre
-}
-
 func scoreLabel(n sql.NullInt32) string {
 	if !n.Valid {
 		return "—"
 	}
 	return fmt.Sprintf("%d/5", n.Int32)
+}
+
+// loginURL arma el enlace al login para volver a la página de la materia después de
+// ingresar (el invitado lo ve en lugar del formulario).
+func loginURL(idMateria int32) string {
+	return "/login?next=" + url.QueryEscape(fmt.Sprintf("/materias/resenas?id=%d", idMateria))
 }
 
 // SESIÓN

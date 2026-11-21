@@ -1,27 +1,12 @@
-# =============================================================================
-# Tests de la app web (templ + HTMX + autenticación) - Foro de alumnos
-#
-# Uso (con la app levantada en :8080 y la BD con datos iniciales):
-#   hurl --test --variable base_url=http://localhost:8080 \
-#        --variable run_id=$(date +%s) requests.hurl
-#   (o simplemente: make test, que ya pasa run_id)
-#
-# Supuestos sobre los datos iniciales (seed.sql):
-#   - existe al menos una materia (se toma la primera de la home)
-# Ya no hace falta un usuario precargado: las pruebas crean sus propias cuentas
-# (emails con run_id, así que se pueden repetir las corridas) y Hurl conserva la
-# cookie de sesión entre pedidos del mismo archivo.
-# =============================================================================
 
-# =============================================================================
 # SECCIÓN 0: PREPARACIÓN (como invitado)
-# =============================================================================
+
 
 # Home: captura el id y el nombre de la primera materia
 GET {{base_url}}/
 HTTP 200
 [Captures]
-materia_id: regex "calificar\\?id=(\\d+)"
+materia_id: regex "resenas\\?id=(\\d+)"
 materia_nombre: xpath "string((//article[@class='entity-card'])[1]/div[@class='subject-title'])"
 [Asserts]
 # Un invitado ve las opciones de ingreso y no la de salir
@@ -29,13 +14,14 @@ body contains "Ingresar"
 body contains "Registrarse"
 body not contains "Salir"
 
-# =============================================================================
-# SECCIÓN A: INVITADO (sin sesión)
-# =============================================================================
 
-# Las reseñas de una materia son públicas
+# SECCIÓN A: INVITADO (sin sesión)
 GET {{base_url}}/materias/resenas?id={{materia_id}}
 HTTP 200
+[Asserts]
+xpath "count(//div[@id='resenas-container'])" == 1
+xpath "count(//form[@hx-post])" == 0
+xpath "string(//section[@id='form-container']//a[1]/@href)" contains "/login?next="
 
 # Páginas protegidas: redirigen al login recordando a dónde se quería ir
 GET {{base_url}}/materias/calificar?id={{materia_id}}
@@ -48,7 +34,7 @@ HTTP 303
 [Asserts]
 header "Location" contains "/login"
 
-# Acciones protegidas: 401 (y HX-Redirect si vienen de HTMX)
+# Acciones protegidas: 401 
 POST {{base_url}}/votos
 HX-Request: true
 [Form]
@@ -85,10 +71,6 @@ HTTP 200
 [Asserts]
 xpath "string(//form/@action)" == "/registro"
 xpath "count(//input[@name='password2'])" == 1
-
-# =============================================================================
-# SECCIÓN B: REGISTRO (validaciones y alta)
-# =============================================================================
 
 # Contraseñas distintas
 POST {{base_url}}/registro
@@ -183,10 +165,6 @@ HTTP 409
 [Asserts]
 body contains "Ya existe una cuenta"
 
-# =============================================================================
-# SECCIÓN C: LOGOUT Y LOGIN
-# =============================================================================
-
 POST {{base_url}}/logout
 HTTP 303
 [Asserts]
@@ -239,19 +217,14 @@ header "Location" == "/mis-resenas"
 GET {{base_url}}/mis-resenas
 HTTP 200
 
-# =============================================================================
 # SECCIÓN 0 (original): PREPARACIÓN, ya con sesión iniciada
-# =============================================================================
 
 # Estado limpio: borra la reseña del usuario para esa materia
 # (DeleteVoto no falla si no existía, así que es idempotente)
 DELETE {{base_url}}/mis-resenas/{{materia_id}}
 HTTP 200
 
-# =============================================================================
 # SECCIÓN 1: PÁGINA PRINCIPAL
-# =============================================================================
-
 GET {{base_url}}/
 HTTP 200
 [Asserts]
@@ -261,8 +234,8 @@ xpath "count(//div[@id='entities-container'])" == 1
 xpath "count(//article[@class='entity-card'])" >= 1
 # HTMX cargado desde el layout (punto 1 de la consigna)
 xpath "count(//script[contains(@src,'htmx')])" >= 1
-body contains "/materias/calificar?id={{materia_id}}"
 body contains "/materias/resenas?id={{materia_id}}"
+body not contains "/materias/calificar"
 
 # Ruta inexistente -> 404 (GET /{$} solo coincide con la raíz)
 GET {{base_url}}/no-existe
@@ -282,24 +255,31 @@ HTTP 200
 [Asserts]
 header "Content-Type" contains "text/css"
 
-# =============================================================================
-# SECCIÓN 2: FORMULARIO DE CALIFICACIÓN (sin voto previo)
-# =============================================================================
-
-GET {{base_url}}/materias/calificar?id={{materia_id}}
+# SECCIÓN 2: PÁGINA DE LA MATERIA = FORMULARIO ARRIBA + RESEÑAS ABAJO
+# Sin voto previo: formulario en modo "Agregar" y la lista de reseñas debajo
+GET {{base_url}}/materias/resenas?id={{materia_id}}
 HTTP 200
 [Asserts]
 header "Content-Type" contains "text/html"
 xpath "string(//section[@id='form-container']/h2)" contains "Agregar reseña"
 xpath "string(//section[@id='form-container']/h2)" contains "{{materia_nombre}}"
-# El formulario es reactivo (HTMX), no un form clásico con action/method
+# El formulario es reactivo (HTMX) y su target es la LISTA de reseñas
 xpath "string(//form[@hx-post]/@hx-post)" == "/votos"
-xpath "string(//form[@hx-post]/@hx-target)" == "#form-container"
+xpath "string(//form[@hx-post]/@hx-target)" == "#resenas-container"
 xpath "string(//form[@hx-post]/@hx-swap)" == "outerHTML"
 xpath "string(//input[@name='idmateria']/@value)" == "{{materia_id}}"
 xpath "count(//input[@type='number'])" == 3
+# La lista existe y está DEBAJO del formulario
+xpath "count(//div[@id='resenas-container'])" == 1
+xpath "count(//section[@id='form-container']/following::div[@id='resenas-container'])" == 1
 # Sin voto previo no hay botón de eliminar
 xpath "count(//button[@class='btn-delete'])" == 0
+
+# /materias/calificar quedó como atajo hacia la página de la materia
+GET {{base_url}}/materias/calificar?id={{materia_id}}
+HTTP 303
+[Asserts]
+header "Location" contains "/materias/resenas?id={{materia_id}}"
 
 GET {{base_url}}/materias/calificar?id=abc
 HTTP 400
@@ -307,20 +287,14 @@ HTTP 400
 GET {{base_url}}/materias/calificar?id=0
 HTTP 400
 
-GET {{base_url}}/materias/calificar?id=999999
-HTTP 404
-
 GET {{base_url}}/materias/resenas?id=abc
 HTTP 400
 
 GET {{base_url}}/materias/resenas?id=999999
 HTTP 404
 
-# =============================================================================
 # SECCIÓN 3: CREAR RESEÑA CON HTMX (POST devuelve fragmento, sin redirección)
-# =============================================================================
-
-# 3.1 Alta: responde 200 (no 303) con solo el fragmento del formulario
+# 3.1 Alta: responde 200 (no 303) con la LISTA de reseñas actualizada + el formulario OOB
 POST {{base_url}}/votos
 HX-Request: true
 [Form]
@@ -334,6 +308,12 @@ HTTP 200
 header "Content-Type" contains "text/html"
 header "Location" not exists
 body not contains "<html"
+# Devuelve la lista completa re-consultada, ya con la reseña nueva...
+xpath "count(//div[@id='resenas-container'])" == 1
+xpath "string(//div[@id='resenas-container'])" contains "Muy buena cursada (form)"
+xpath "count(//article[@class='voto-card'])" >= 1
+# ...y el formulario actualizado viaja "out of band" (pasa a modo edición)
+xpath "string(//section[@id='form-container']/@hx-swap-oob)" == "true"
 xpath "string(//section[@id='form-container']/h2)" contains "Editar tu reseña"
 xpath "string(//input[@name='puntuacion_dif']/@value)" == "4"
 xpath "string(//input[@name='puntuacion_rel']/@value)" == "5"
@@ -351,7 +331,7 @@ body contains "4/5"
 xpath "count(//article[@class='voto-card'])" >= 1
 
 # 3.3 El formulario queda en modo edición y precargado
-GET {{base_url}}/materias/calificar?id={{materia_id}}
+GET {{base_url}}/materias/resenas?id={{materia_id}}
 HTTP 200
 [Asserts]
 xpath "string(//section[@id='form-container']/h2)" contains "Editar tu reseña"
@@ -369,10 +349,7 @@ xpath "count(//article[@class='mi-resena'])" >= 1
 body contains "hx-delete=\"/mis-resenas/{{materia_id}}\""
 body contains "Muy buena cursada (form)"
 
-# =============================================================================
 # SECCIÓN 4: ACTUALIZAR (el POST hace upsert; los campos omitidos quedan en NULL)
-# =============================================================================
-
 POST {{base_url}}/votos
 HX-Request: true
 [Form]
@@ -386,6 +363,9 @@ xpath "string(//input[@name='puntuacion_dif']/@value)" == "2"
 xpath "string(//input[@name='puntuacion_rel']/@value)" == ""
 xpath "string(//input[@name='puntuacion_gusto']/@value)" == ""
 xpath "string(//textarea[@name='descripcion'])" == "Opinión actualizada"
+# La lista devuelta ya refleja el cambio (la reseña propia no se duplica)
+xpath "string(//div[@id='resenas-container'])" contains "Opinión actualizada"
+xpath "string(//div[@id='resenas-container'])" not contains "Muy buena cursada (form)"
 
 # Persistió y reemplazó la reseña anterior (no se duplicó)
 GET {{base_url}}/materias/resenas?id={{materia_id}}
@@ -394,10 +374,7 @@ HTTP 200
 body contains "Opinión actualizada"
 body not contains "Muy buena cursada (form)"
 
-# =============================================================================
 # SECCIÓN 5: VALIDACIONES DEL FORMULARIO (400 y no se guarda)
-# =============================================================================
-
 # Puntuación fuera de rango (alta)
 POST {{base_url}}/votos
 [Form]
@@ -465,17 +442,14 @@ HTTP 400
 body contains "no es válido"
 
 # Ninguno de los intentos inválidos modificó la reseña guardada
-GET {{base_url}}/materias/calificar?id={{materia_id}}
+GET {{base_url}}/materias/resenas?id={{materia_id}}
 HTTP 200
 [Asserts]
 xpath "string(//input[@name='puntuacion_dif']/@value)" == "2"
 xpath "string(//textarea[@name='descripcion'])" == "Opinión actualizada"
 
-# =============================================================================
 # SECCIÓN 6: ELIMINAR DESDE EL FORMULARIO (DELETE /votos/eliminar)
-# =============================================================================
-
-# Responde 200 con el formulario de nuevo en modo "Agregar"
+# Responde 200 con la lista actualizada + el formulario de nuevo en modo "Agregar"
 DELETE {{base_url}}/votos/eliminar
 HX-Request: true
 [QueryStringParams]
@@ -488,6 +462,10 @@ xpath "string(//section[@id='form-container']/h2)" contains "Agregar reseña"
 xpath "string(//input[@name='puntuacion_dif']/@value)" == ""
 xpath "string(//textarea[@name='descripcion'])" == ""
 xpath "count(//button[@class='btn-delete'])" == 0
+# La lista devuelta ya no incluye la reseña eliminada
+xpath "count(//div[@id='resenas-container'])" == 1
+xpath "string(//div[@id='resenas-container'])" not contains "Opinión actualizada"
+xpath "string(//section[@id='form-container']/@hx-swap-oob)" == "true"
 
 # Se borró de verdad
 GET {{base_url}}/materias/resenas?id={{materia_id}}
@@ -504,10 +482,7 @@ DELETE {{base_url}}/votos/eliminar
 idmateria: abc
 HTTP 400
 
-# =============================================================================
 # SECCIÓN 7: ELIMINAR DESDE "MIS RESEÑAS" (DELETE /mis-resenas/{idmateria})
-# =============================================================================
-
 # Se vuelve a crear una reseña para borrarla desde esta vista
 POST {{base_url}}/votos
 HX-Request: true
@@ -552,10 +527,7 @@ HTTP 400
 DELETE {{base_url}}/mis-resenas/0
 HTTP 400
 
-# =============================================================================
 # SECCIÓN 8: AISLAMIENTO ENTRE USUARIOS (nadie toca reseñas ajenas)
-# =============================================================================
-
 # El usuario A deja una reseña
 POST {{base_url}}/votos
 HX-Request: true
@@ -584,11 +556,13 @@ HTTP 200
 [Asserts]
 body not contains "Reseña privada de A"
 
-GET {{base_url}}/materias/calificar?id={{materia_id}}
+GET {{base_url}}/materias/resenas?id={{materia_id}}
 HTTP 200
 [Asserts]
 xpath "string(//section[@id='form-container']/h2)" contains "Agregar reseña"
 xpath "string(//input[@name='puntuacion_dif']/@value)" == ""
+# La reseña de A es pública: B la ve en la lista de abajo (pero no en su formulario)
+xpath "string(//div[@id='resenas-container'])" contains "Reseña privada de A"
 
 # B intenta borrar "su" reseña de esa materia: borra solo lo propio (nada)
 DELETE {{base_url}}/mis-resenas/{{materia_id}}

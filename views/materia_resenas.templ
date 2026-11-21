@@ -2,31 +2,59 @@ package views
 
 import "tp2_entrega/db"
 
-templ MateriaResenas(materia db.Materia, votos []db.Voto) {
+// MateriaResenas es la página de una materia: ARRIBA el formulario para agregar o
+// editar tu reseña, ABAJO las reseñas de todos los usuarios.
+// Los invitados ven las reseñas y, en lugar del formulario, una invitación a ingresar.
+templ MateriaResenas(materia db.Materia, voto *db.Voto, votos []db.Voto) {
 	@Layout("Reseñas de " + materia.Nombre) {
+		if loggedIn(ctx) {
+			@FormContent(materia, voto)
+		} else {
+			<section id="form-container" class="form-section">
+				<h2>Agregar reseña para { materia.Nombre }</h2>
+				<p>
+					Para dejar tu reseña tenés que
+					<a href={ templ.SafeURL(loginURL(materia.Idmateria)) }>ingresar</a>
+					o <a href="/registro">crear una cuenta</a>.
+				</p>
+			</section>
+		}
 		<section class="resenas-section">
 			<h2>Reseñas de { materia.Nombre }</h2>
-			if len(votos) == 0 {
-				<p class="no-data">Aún no hay reseñas registradas para esta materia.</p>
-			} else {
-				<div class="votos-list">
-					for _, v := range votos {
-						<article class="voto-card">
-							<div class="scores-grid">
-								<p><strong>Dificultad:</strong> { scoreLabel(v.PuntuacionDif) }</p>
-								<p><strong>Relevancia:</strong> { scoreLabel(v.PuntuacionRel) }</p>
-								<p><strong>Gusto:</strong> { scoreLabel(v.PuntuacionGusto) }</p>
-							</div>
-							if v.Descripcion.Valid && v.Descripcion.String != "" {
-								<p class="comentario">"{ v.Descripcion.String }"</p>
-							}
-						</article>
-					}
-				</div>
-			}
+			@ResenasLista(votos)
 			<div class="back-link-container">
 				<a href="/" class="btn-back">← Volver al Plan de Materias</a>
 			</div>
 		</section>
 	}
+}
+
+// ResenasLista es el fragmento que HTMX reemplaza (#resenas-container) cuando se
+// guarda o se elimina una reseña.
+templ ResenasLista(votos []db.Voto) {
+	<div id="resenas-container" class="votos-list">
+		if len(votos) == 0 {
+			<p class="no-data">Aún no hay reseñas registradas para esta materia.</p>
+		} else {
+			for _, v := range votos {
+				<article class="voto-card">
+					<div class="scores-grid">
+						<p><strong>Dificultad:</strong> { scoreLabel(v.PuntuacionDif) }</p>
+						<p><strong>Relevancia:</strong> { scoreLabel(v.PuntuacionRel) }</p>
+						<p><strong>Gusto:</strong> { scoreLabel(v.PuntuacionGusto) }</p>
+					</div>
+					if v.Descripcion.Valid && v.Descripcion.String != "" {
+						<p class="comentario">"{ v.Descripcion.String }"</p>
+					}
+				</article>
+			}
+		}
+	</div>
+}
+
+// ResenasActualizadas es la respuesta del POST /votos y del DELETE /votos/eliminar:
+// la lista completa de reseñas (target principal) más el formulario actualizado (OOB).
+templ ResenasActualizadas(materia db.Materia, voto *db.Voto, votos []db.Voto) {
+	@ResenasLista(votos)
+	@FormContentOOB(materia, voto)
 }

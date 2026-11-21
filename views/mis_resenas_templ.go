@@ -138,9 +138,9 @@ func MisResenas(votos []db.ListarVotosPorUsuarioRow) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var8 string
-					templ_7745c5c3_Var8, templ_7745c5c3_Err = templruntime.NewAttributeExpression(templ.SafeURL(fmt.Sprintf("/materias/calificar?id=%d", v.Idmateria))).ResolveURL(ctx)
+					templ_7745c5c3_Var8, templ_7745c5c3_Err = templruntime.NewAttributeExpression(templ.SafeURL(fmt.Sprintf("/materias/resenas?id=%d#form-container", v.Idmateria))).ResolveURL(ctx)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/mis_resenas.templ`, Line: 29, Col: 84}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/mis_resenas.templ`, Line: 29, Col: 97}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
 					if templ_7745c5c3_Err != nil {

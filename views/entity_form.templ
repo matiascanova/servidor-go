@@ -12,49 +12,64 @@ templ scoreInput(id string, label string, value string) {
 	</div>
 }
 
-// FormContent renderiza ÚNICAMENTE el fragmento del formulario (para las respuestas de HTMX)
+// formInner es el contenido del formulario (título + <form>). Se reutiliza en las dos
+// variantes de abajo para no duplicar el HTML.
+//
+// hx-target apunta al contenedor de la LISTA de reseñas (#resenas-container): el
+// servidor responde con la lista actualizada, y HTMX la coloca ahí sin recargar.
+templ formInner(materia db.Materia, voto *db.Voto) {
+	if voto != nil {
+		<h2>Editar tu reseña para { materia.Nombre }</h2>
+	} else {
+		<h2>Agregar reseña para { materia.Nombre }</h2>
+	}
+	<form hx-post="/votos" hx-target="#resenas-container" hx-swap="outerHTML">
+		<input type="hidden" name="idmateria" value={ fmt.Sprintf("%d", materia.Idmateria) }/>
+		<div class="ratings-row">
+			@scoreInput("puntuacion_dif", "Dificultad (1-5):", scoreDif(voto))
+			@scoreInput("puntuacion_rel", "Relevancia (1-5):", scoreRel(voto))
+			@scoreInput("puntuacion_gusto", "Gusto Personal (1-5):", scoreGusto(voto))
+		</div>
+		<div class="form-group">
+			<label for="descripcion">Comentario / Opinión:</label>
+			<textarea id="descripcion" name="descripcion" rows="3" maxlength="140" placeholder="Escribe tu opinión sobre la cursada...">{ comentarioVoto(voto) }</textarea>
+		</div>
+		<button type="submit" class="btn-submit">
+			if voto != nil {
+				Guardar Cambios
+			} else {
+				Guardar Reseña
+			}
+		</button>
+		if voto != nil {
+			<button
+				type="button"
+				hx-delete={ fmt.Sprintf("/votos/eliminar?idmateria=%d", materia.Idmateria) }
+				hx-target="#resenas-container"
+				hx-swap="outerHTML"
+				hx-include="closest form"
+				hx-confirm="¿Estás seguro de eliminar tu reseña?"
+				class="btn-delete"
+			>
+				Eliminar reseña
+			</button>
+		}
+	</form>
+}
+
+// FormContent: el formulario tal como se muestra al cargar la página.
 templ FormContent(materia db.Materia, voto *db.Voto) {
 	<section id="form-container" class="form-section">
-		if voto != nil {
-			<h2>Editar tu reseña para { materia.Nombre }</h2>
-		} else {
-			<h2>Agregar reseña para { materia.Nombre }</h2>
-		}
-		<form hx-post="/votos" hx-target="#form-container" hx-swap="outerHTML">
-			<input type="hidden" name="idmateria" value={ fmt.Sprintf("%d", materia.Idmateria) }/>
-			<div class="ratings-row">
-				@scoreInput("puntuacion_dif", "Dificultad (1-5):", scoreDif(voto))
-				@scoreInput("puntuacion_rel", "Relevancia (1-5):", scoreRel(voto))
-				@scoreInput("puntuacion_gusto", "Gusto Personal (1-5):", scoreGusto(voto))
-			</div>
-			<div class="form-group">
-				<label for="descripcion">Comentario / Opinión:</label>
-				<textarea id="descripcion" name="descripcion" rows="3" maxlength="140" placeholder="Escribe tu opinión sobre la cursada...">{ comentarioVoto(voto) }</textarea>
-			</div>
-			<button type="submit" class="btn-submit">
-				if voto != nil {
-					Guardar Cambios
-				} else {
-					Guardar Reseña
-				}
-			</button>
-			if voto != nil {
-					<button 
-						type="button"
-						hx-delete={ fmt.Sprintf("/votos/eliminar?idmateria=%d", materia.Idmateria) }
-						hx-target="#form-container" 
-						hx-swap="outerHTML" 
-						hx-include="closest form"
-						hx-confirm="¿Estás seguro de eliminar tu reseña?"
-						class="btn-delete">
-						Eliminar reseña
-					</button>
-				}
-		</form>
+		@formInner(materia, voto)
 	</section>
 }
-templ EntityForm(materia db.Materia, voto *db.Voto) {
-	@Layout(formTitle(materia, voto)) {
-		@FormContent(materia, voto)
-	}
+
+// FormContentOOB: el mismo formulario, pero marcado hx-swap-oob. HTMX lo toma de la
+// respuesta y reemplaza el formulario de la página aunque el target principal sea la
+// lista. Así el formulario pasa a "Editar" (o vuelve a "Agregar") y aparece o
+// desaparece el botón de eliminar, sin recargar.
+templ FormContentOOB(materia db.Materia, voto *db.Voto) {
+	<section id="form-container" class="form-section" hx-swap-oob="true">
+		@formInner(materia, voto)
+	</section>
 }
