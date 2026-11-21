@@ -6,7 +6,6 @@
 - Docker con Docker Compose
 - make
 - templ
-  ```
 - Hurl (solo para las pruebas)
 
 ## Comandos
