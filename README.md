@@ -5,12 +5,9 @@
 - Go 1.26 o superior
 - Docker con Docker Compose
 - make
-- [templ](https://templ.guide) y [sqlc](https://sqlc.dev):
-  ```bash
-  go install github.com/a-h/templ/cmd/templ@v0.2.778
-  go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+- templ
   ```
-- [Hurl](https://hurl.dev) (solo para las pruebas)
+- Hurl (solo para las pruebas)
 
 ## Comandos
 
@@ -42,7 +39,4 @@ sesión: las cuentas reales se crean desde `/registro`.
 
 `make test` ejecuta `requests.hurl`, que crea sus propias cuentas con un `run_id` distinto en cada
 corrida. Para correr Hurl a mano hay que pasar esa variable:
-
-```bash
-hurl --test --variable base_url=http://localhost:8080 --variable run_id=$(date +%s) requests.hurl
-```
+ make test debe ejecutarse desde una nueva terminal
