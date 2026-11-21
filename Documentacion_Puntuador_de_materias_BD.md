@@ -112,7 +112,7 @@ También hay un subcomponente `scoreInput` en `entity_form.templ`, que evita rep
 
 ## 5. Cómo ejecutar y probar
 
-Requisitos: Go 1.22 o superior, Docker con Compose, make, templ, sqlc y Hurl.
+Requisitos: Go 1.26 o superior, Docker con Compose, make, templ, sqlc y Hurl.
 
 ```bash
 make        # genera el código, levanta la base de datos y corre la app en http://localhost:8080

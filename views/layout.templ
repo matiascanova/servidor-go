@@ -1,4 +1,5 @@
 package views
+
 templ Layout(title string) {
 	<!DOCTYPE html>
 	<html lang="es">
@@ -7,6 +8,7 @@ templ Layout(title string) {
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<title>{ title }</title>
 			<link rel="stylesheet" href="/static/styles.css"/>
+			<link rel="stylesheet" href="/static/auth.css"/>
 			<script src="https://unpkg.com/htmx.org@1.9.10"></script>
 		</head>
 		<body>
@@ -16,7 +18,16 @@ templ Layout(title string) {
 					<p class="description">Plan de Estudios: Ingeniería en Sistemas. Consultá o cargá reseñas de materias.</p>
 					<nav class="main-nav">
 						<a href="/" class="nav-tab">Materias</a>
-						<a href="/mis-resenas" class="nav-tab">Mis reseñas</a>
+						if loggedIn(ctx) {
+							<a href="/mis-resenas" class="nav-tab">Mis reseñas</a>
+							<span class="nav-user">Hola, { nombreUsuario(ctx) }</span>
+							<form method="post" action="/logout" class="nav-logout-form">
+								<button type="submit" class="nav-tab nav-logout">Salir</button>
+							</form>
+						} else {
+							<a href="/login" class="nav-tab">Ingresar</a>
+							<a href="/registro" class="nav-tab">Registrarse</a>
+						}
 					</nav>
 				</div>
 			</header>

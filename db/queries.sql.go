@@ -61,6 +61,31 @@ func (q *Queries) ActualizarUsuario(ctx context.Context, arg ActualizarUsuarioPa
 	return err
 }
 
+const borrarSesion = `-- name: BorrarSesion :exec
+DELETE FROM sesion WHERE token_hash = $1
+`
+
+func (q *Queries) BorrarSesion(ctx context.Context, tokenHash string) error {
+	_, err := q.db.ExecContext(ctx, borrarSesion, tokenHash)
+	return err
+}
+
+const crearSesion = `-- name: CrearSesion :exec
+INSERT INTO sesion (token_hash, idusuario, expira)
+VALUES ($1, $2, $3)
+`
+
+type CrearSesionParams struct {
+	TokenHash string    `json:"token_hash"`
+	Idusuario int32     `json:"idusuario"`
+	Expira    time.Time `json:"expira"`
+}
+
+func (q *Queries) CrearSesion(ctx context.Context, arg CrearSesionParams) error {
+	_, err := q.db.ExecContext(ctx, crearSesion, arg.TokenHash, arg.Idusuario, arg.Expira)
+	return err
+}
+
 const deleteMateria = `-- name: DeleteMateria :exec
 DELETE FROM materia WHERE idmateria = $1
 `
@@ -113,9 +138,52 @@ const getUsuario = `-- name: GetUsuario :one
 SELECT idusuario, nombre, apellido FROM usuario WHERE idusuario = $1
 `
 
-func (q *Queries) GetUsuario(ctx context.Context, idusuario int32) (Usuario, error) {
+type GetUsuarioRow struct {
+	Idusuario int32  `json:"idusuario"`
+	Nombre    string `json:"nombre"`
+	Apellido  string `json:"apellido"`
+}
+
+func (q *Queries) GetUsuario(ctx context.Context, idusuario int32) (GetUsuarioRow, error) {
 	row := q.db.QueryRowContext(ctx, getUsuario, idusuario)
-	var i Usuario
+	var i GetUsuarioRow
+	err := row.Scan(&i.Idusuario, &i.Nombre, &i.Apellido)
+	return i, err
+}
+
+const getUsuarioPorEmail = `-- name: GetUsuarioPorEmail :one
+SELECT idusuario, password_hash FROM usuario WHERE email = $1::text
+`
+
+type GetUsuarioPorEmailRow struct {
+	Idusuario    int32          `json:"idusuario"`
+	PasswordHash sql.NullString `json:"password_hash"`
+}
+
+func (q *Queries) GetUsuarioPorEmail(ctx context.Context, email string) (GetUsuarioPorEmailRow, error) {
+	row := q.db.QueryRowContext(ctx, getUsuarioPorEmail, email)
+	var i GetUsuarioPorEmailRow
+	err := row.Scan(&i.Idusuario, &i.PasswordHash)
+	return i, err
+}
+
+const getUsuarioPorSesion = `-- name: GetUsuarioPorSesion :one
+SELECT u.idusuario, u.nombre, u.apellido
+FROM sesion s
+JOIN usuario u ON u.idusuario = s.idusuario
+WHERE s.token_hash = $1 AND s.expira > now()
+`
+
+type GetUsuarioPorSesionRow struct {
+	Idusuario int32  `json:"idusuario"`
+	Nombre    string `json:"nombre"`
+	Apellido  string `json:"apellido"`
+}
+
+// Devuelve el usuario dueño de la sesión solo si no venció.
+func (q *Queries) GetUsuarioPorSesion(ctx context.Context, tokenHash string) (GetUsuarioPorSesionRow, error) {
+	row := q.db.QueryRowContext(ctx, getUsuarioPorSesion, tokenHash)
+	var i GetUsuarioPorSesionRow
 	err := row.Scan(&i.Idusuario, &i.Nombre, &i.Apellido)
 	return i, err
 }
@@ -232,11 +300,26 @@ type InsertarUsuarioParams struct {
 	Apellido  string `json:"apellido"`
 }
 
-func (q *Queries) InsertarUsuario(ctx context.Context, arg InsertarUsuarioParams) (Usuario, error) {
+type InsertarUsuarioRow struct {
+	Idusuario int32  `json:"idusuario"`
+	Nombre    string `json:"nombre"`
+	Apellido  string `json:"apellido"`
+}
+
+func (q *Queries) InsertarUsuario(ctx context.Context, arg InsertarUsuarioParams) (InsertarUsuarioRow, error) {
 	row := q.db.QueryRowContext(ctx, insertarUsuario, arg.Idusuario, arg.Nombre, arg.Apellido)
-	var i Usuario
+	var i InsertarUsuarioRow
 	err := row.Scan(&i.Idusuario, &i.Nombre, &i.Apellido)
 	return i, err
+}
+
+const limpiarSesionesExpiradas = `-- name: LimpiarSesionesExpiradas :exec
+DELETE FROM sesion WHERE expira <= now()
+`
+
+func (q *Queries) LimpiarSesionesExpiradas(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, limpiarSesionesExpiradas)
+	return err
 }
 
 const listarMaterias = `-- name: ListarMaterias :many
@@ -278,16 +361,22 @@ const listarUsuarios = `-- name: ListarUsuarios :many
 SELECT idusuario, nombre, apellido FROM usuario ORDER BY idusuario
 `
 
+type ListarUsuariosRow struct {
+	Idusuario int32  `json:"idusuario"`
+	Nombre    string `json:"nombre"`
+	Apellido  string `json:"apellido"`
+}
+
 // USUARIOS
-func (q *Queries) ListarUsuarios(ctx context.Context) ([]Usuario, error) {
+func (q *Queries) ListarUsuarios(ctx context.Context) ([]ListarUsuariosRow, error) {
 	rows, err := q.db.QueryContext(ctx, listarUsuarios)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Usuario
+	var items []ListarUsuariosRow
 	for rows.Next() {
-		var i Usuario
+		var i ListarUsuariosRow
 		if err := rows.Scan(&i.Idusuario, &i.Nombre, &i.Apellido); err != nil {
 			return nil, err
 		}
@@ -392,4 +481,33 @@ func (q *Queries) ListarVotosPorUsuario(ctx context.Context, idusuario int32) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const registrarUsuario = `-- name: RegistrarUsuario :one
+
+INSERT INTO usuario (nombre, apellido, email, password_hash)
+VALUES ($1, $2, $3::text, $4::text)
+RETURNING idusuario
+`
+
+type RegistrarUsuarioParams struct {
+	Nombre       string `json:"nombre"`
+	Apellido     string `json:"apellido"`
+	Email        string `json:"email"`
+	PasswordHash string `json:"password_hash"`
+}
+
+// AUTENTICACIÓN
+// Alta de una cuenta. El id lo genera la base (identity). Los casts a text hacen
+// que sqlc genere parámetros string comunes y no sql.NullString.
+func (q *Queries) RegistrarUsuario(ctx context.Context, arg RegistrarUsuarioParams) (int32, error) {
+	row := q.db.QueryRowContext(ctx, registrarUsuario,
+		arg.Nombre,
+		arg.Apellido,
+		arg.Email,
+		arg.PasswordHash,
+	)
+	var idusuario int32
+	err := row.Scan(&idusuario)
+	return idusuario, err
 }

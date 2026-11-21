@@ -12,6 +12,8 @@ services:
       # Se eliminó el volumen pgdata para que los scripts corran siempre
       - ./sql/schema/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
       - ./sql/schema/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+      # Sincroniza la secuencia de idUsuario con los ids que insertó el seed
+      - ./sql/schema/post_seed.sql:/docker-entrypoint-initdb.d/03-post-seed.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d apirest"]
       interval: 5s
@@ -28,6 +30,8 @@ services:
       - "8080:8080"
     environment:
       - DATABASE_URL=postgres://postgres:postgres@database:5432/apirest?sslmode=disable
+      # Poner en true si la app se sirve detrás de HTTPS
+      - COOKIE_SECURE=false
     depends_on:
       database:
         condition: service_healthy

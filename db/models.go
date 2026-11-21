@@ -16,10 +16,18 @@ type Materia struct {
 	Descripcion  sql.NullString `json:"descripcion"`
 }
 
+type Sesion struct {
+	TokenHash string    `json:"token_hash"`
+	Idusuario int32     `json:"idusuario"`
+	Expira    time.Time `json:"expira"`
+}
+
 type Usuario struct {
-	Idusuario int32  `json:"idusuario"`
-	Nombre    string `json:"nombre"`
-	Apellido  string `json:"apellido"`
+	Idusuario    int32          `json:"idusuario"`
+	Nombre       string         `json:"nombre"`
+	Apellido     string         `json:"apellido"`
+	Email        sql.NullString `json:"email"`
+	PasswordHash sql.NullString `json:"password_hash"`
 }
 
 type Voto struct {

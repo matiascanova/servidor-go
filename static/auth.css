@@ -1,0 +1,46 @@
+/* Estilos de login, registro y barra de sesión.
+   Van en un archivo aparte para no tocar styles.css; ajustá colores a tu tema. */
+
+.auth-section {
+	max-width: 28rem;
+	margin: 2rem auto;
+}
+
+.auth-form .form-group {
+	margin-bottom: 1rem;
+}
+
+.auth-form input {
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.auth-alt {
+	margin-top: 1rem;
+}
+
+.error-msg {
+	padding: 0.6rem 0.8rem;
+	border: 1px solid #c0392b;
+	border-radius: 6px;
+	background: #fdecea;
+	color: #922b21;
+}
+
+.nav-user {
+	margin: 0 0.75rem;
+	font-weight: 600;
+}
+
+.nav-logout-form {
+	display: inline;
+	margin: 0;
+}
+
+.nav-logout {
+	background: none;
+	border: 0;
+	cursor: pointer;
+	font: inherit;
+	color: inherit;
+}

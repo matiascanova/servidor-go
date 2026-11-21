@@ -1,12 +1,4 @@
--- seed.sql - Datos de prueba iniciales para la base de datos apirest
-
--- 1. Insertar Usuarios
-INSERT INTO usuario (idusuario, nombre, apellido) VALUES
-  (1, 'Francisco', 'Turraspe'),
-  (2, 'Matias', 'Canoa')
-ON CONFLICT (idusuario) DO NOTHING;
-
--- 2. Insertar Materias extraídas de la imagen del plan de estudios (organizadas por cuatrimestre)
+-- 1. Insertar Materias extraídas de la imagen del plan de estudios (organizadas por cuatrimestre)
 INSERT INTO materia (idmateria, nombre, cuatrimestre, descripcion) VALUES
   -- 1er Cuatrimestre
   (1, 'Introducción a la Programación I', 1, 'Materia del 1er cuatrimestre'),
@@ -66,8 +58,3 @@ INSERT INTO materia (idmateria, nombre, cuatrimestre, descripcion) VALUES
   (37, 'Ética y Legislación de la Práctica Profesional', 10, 'Materia del 10mo cuatrimestre')
 ON CONFLICT (idmateria) DO NOTHING;
 
--- 3. reseña misteriosa
-INSERT INTO voto (idUsuario, idMateria, puntuacion_dif, puntuacion_rel, puntuacion_gusto, descripcion) VALUES
-  (2,3,2,4,5,'Gran materia la recursaria para hacerla de vuelta'),
-  (2,1,5,5,5,'Hola soy una reseña de seed.sql')
-ON CONFLICT (idusuario,idMateria) DO NOTHING;

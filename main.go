@@ -20,12 +20,12 @@ import (
 	"tp2_entrega/views"
 )
 
-// CONFIGURACION
-const usuarioDemoID int32 = 1
-
 type Server struct {
 	queries *db.Queries
 	dbConn  *sql.DB
+	// cookieSecure marca la cookie de sesión como "solo por HTTPS".
+	// Activar con COOKIE_SECURE=true cuando la app se sirva con HTTPS.
+	cookieSecure bool
 }
 
 // DTO para validación del formulario de votos
@@ -149,7 +149,12 @@ func main() {
 	}
 	defer dbConn.Close()
 
-	server := &Server{queries: queries, dbConn: dbConn}
+	server := &Server{
+		queries:      queries,
+		dbConn:       dbConn,
+		cookieSecure: os.Getenv("COOKIE_SECURE") == "true",
+	}
+	go server.limpiarSesionesPeriodicamente()
 
 	httpServer := &http.Server{
 		Addr:         ":8080",
@@ -166,26 +171,36 @@ func main() {
 	}
 }
 
-// RUTAS (EXCLUSIVAMENTE HTML / FORMULARIOS)
+// RUTAS
 func (s *Server) routes() http.Handler {
 	mux := http.NewServeMux()
 
 	// ESTATICOS
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 
-	// VISTAS HTML (TEMPL)
+	// PÚBLICAS (modo invitado): ver materias y reseñas
 	mux.HandleFunc("GET /{$}", s.homeHandler)
-	mux.HandleFunc("GET /materias/calificar", withQueryID(s.calificarHandler))
 	mux.HandleFunc("GET /materias/resenas", withQueryID(s.resenasHandler))
-	mux.HandleFunc("GET /mis-resenas", s.misResenasHandler)
 
-	// ACCIÓN DE FORMULARIO (POST) 
-	mux.HandleFunc("POST /votos", s.crearVotoForm)
-    mux.HandleFunc("DELETE /votos/eliminar", s.eliminarVotoHandler)
+	// AUTENTICACIÓN
+	mux.HandleFunc("GET /login", s.loginPageHandler)
+	mux.HandleFunc("POST /login", s.loginHandler)
+	mux.HandleFunc("GET /registro", s.registroPageHandler)
+	mux.HandleFunc("POST /registro", s.registroHandler)
+	mux.HandleFunc("POST /logout", s.logoutHandler)
 
-	// BORRADO DESDE "MIS RESEÑAS" (respuesta vacía: la tarjeta desaparece)
-	mux.HandleFunc("DELETE /mis-resenas/{idmateria}", s.borrarMiResenaHandler)
-	return mux
+	// PROTEGIDAS: requieren sesión. El usuario sale siempre de la sesión.
+	mux.HandleFunc("GET /materias/calificar", s.requireUser(withQueryID(s.calificarHandler)))
+	mux.HandleFunc("GET /mis-resenas", s.requireUser(s.misResenasHandler))
+	mux.HandleFunc("POST /votos", s.requireUser(s.crearVotoForm))
+	mux.HandleFunc("DELETE /votos/eliminar", s.requireUser(s.eliminarVotoHandler))
+	mux.HandleFunc("DELETE /mis-resenas/{idmateria}", s.requireUser(s.borrarMiResenaHandler))
+
+	// Protección CSRF (biblioteca estándar, Go 1.25+): rechaza POST/DELETE enviados
+	// desde otro sitio (compara Origin / Sec-Fetch-Site). Los clientes sin esos
+	// headers, como Hurl, pasan sin problema.
+	cop := http.NewCrossOriginProtection()
+	return cop.Handler(s.withUser(mux))
 }
 
 // --- HANDLERS DE VISTAS HTML ---
@@ -218,7 +233,7 @@ func (s *Server) calificarHandler(w http.ResponseWriter, r *http.Request, idMate
 
 	var votoPtr *db.Voto
 	voto, err := s.queries.GetVoto(r.Context(), db.GetVotoParams{
-		Idusuario: usuarioDemoID,
+		Idusuario: userID(r),
 		Idmateria: idMateria,
 	})
 	switch {
@@ -238,7 +253,7 @@ func (s *Server) calificarHandler(w http.ResponseWriter, r *http.Request, idMate
 }
 
 func (s *Server) misResenasHandler(w http.ResponseWriter, r *http.Request) {
-	votos, err := s.queries.ListarVotosPorUsuario(r.Context(), usuarioDemoID)
+	votos, err := s.queries.ListarVotosPorUsuario(r.Context(), userID(r))
 	if err != nil {
 		status, msg := classifyDBError(err)
 		http.Error(w, msg, status)
@@ -319,14 +334,16 @@ func (s *Server) crearVotoForm(w http.ResponseWriter, r *http.Request) {
 	dif, err2 := formOptionalInt(r, "puntuacion_dif")
 	rel, err3 := formOptionalInt(r, "puntuacion_rel")
 	gusto, err4 := formOptionalInt(r, "puntuacion_gusto")
-    
+
 	if err1 != nil || err2 != nil || err3 != nil || err4 != nil {
 		http.Error(w, "Formulario inválido: valores numéricos incorrectos", http.StatusBadRequest)
 		return
 	}
 
+	// El autor del voto es SIEMPRE el usuario de la sesión, nunca un valor del formulario.
+	uid := userID(r)
 	dto := VotoDTO{
-		IDUsuario:       usuarioDemoID,
+		IDUsuario:       uid,
 		IDMateria:       idMateria,
 		PuntuacionDif:   dif,
 		PuntuacionRel:   rel,
@@ -348,7 +365,7 @@ func (s *Server) crearVotoForm(w http.ResponseWriter, r *http.Request) {
 
 	materia, _ := s.queries.GetMateria(r.Context(), dto.IDMateria)
 	votoActualizado, _ := s.queries.GetVoto(r.Context(), db.GetVotoParams{
-		Idusuario: usuarioDemoID,
+		Idusuario: uid,
 		Idmateria: dto.IDMateria,
 	})
 
@@ -370,7 +387,7 @@ func (s *Server) eliminarVotoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = s.queries.DeleteVoto(r.Context(), db.DeleteVotoParams{
-		Idusuario: usuarioDemoID,
+		Idusuario: userID(r),
 		Idmateria: idMateria,
 	})
 	if err != nil {
@@ -380,7 +397,7 @@ func (s *Server) eliminarVotoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	materia, _ := s.queries.GetMateria(r.Context(), idMateria)
-	
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	views.FormContent(materia, nil).Render(r.Context(), w)
 }
@@ -392,7 +409,7 @@ func (s *Server) borrarMiResenaHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err := s.queries.DeleteVoto(r.Context(), db.DeleteVotoParams{
-		Idusuario: usuarioDemoID,
+		Idusuario: userID(r),
 		Idmateria: idMateria,
 	})
 	if err != nil {

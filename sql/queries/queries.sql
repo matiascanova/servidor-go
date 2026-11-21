@@ -20,6 +20,36 @@ WHERE idusuario = $1;
 DELETE FROM usuario WHERE idusuario = $1;
 
 
+-- AUTENTICACIÓN
+
+-- Alta de una cuenta. El id lo genera la base (identity). Los casts a text hacen
+-- que sqlc genere parámetros string comunes y no sql.NullString.
+-- name: RegistrarUsuario :one
+INSERT INTO usuario (nombre, apellido, email, password_hash)
+VALUES (sqlc.arg(nombre), sqlc.arg(apellido), sqlc.arg(email)::text, sqlc.arg(password_hash)::text)
+RETURNING idusuario;
+
+-- name: GetUsuarioPorEmail :one
+SELECT idusuario, password_hash FROM usuario WHERE email = sqlc.arg(email)::text;
+
+-- name: CrearSesion :exec
+INSERT INTO sesion (token_hash, idusuario, expira)
+VALUES ($1, $2, $3);
+
+-- Devuelve el usuario dueño de la sesión solo si no venció.
+-- name: GetUsuarioPorSesion :one
+SELECT u.idusuario, u.nombre, u.apellido
+FROM sesion s
+JOIN usuario u ON u.idusuario = s.idusuario
+WHERE s.token_hash = $1 AND s.expira > now();
+
+-- name: BorrarSesion :exec
+DELETE FROM sesion WHERE token_hash = $1;
+
+-- name: LimpiarSesionesExpiradas :exec
+DELETE FROM sesion WHERE expira <= now();
+
+
 -- MATERIAS
 
 -- name: ListarMaterias :many
